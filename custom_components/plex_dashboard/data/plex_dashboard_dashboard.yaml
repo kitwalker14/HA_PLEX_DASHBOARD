@@ -121,6 +121,7 @@ views:
             icon: mdi:bookshelf
 
           - type: custom:auto-entities
+            show_empty: false
             card:
               type: entities
               state_color: false
@@ -133,6 +134,25 @@ views:
                 - state: "unavailable"
             sort:
               method: name
+
+          # Hint shown when no library sensors are exposed by the Plex
+          # integration (auto-entities returns an empty card and is hidden
+          # via show_empty:false above; this markdown explains how to enable
+          # them). It's harmless when libraries do appear because users will
+          # see both, so we wrap it in a template condition.
+          - type: conditional
+            conditions:
+              - condition: template
+                value_template: >-
+                  {{ states.sensor
+                     | selectattr('entity_id','match','^sensor\\.plex_library_')
+                     | list | count == 0 }}
+            card:
+              type: markdown
+              content: >-
+                _No Plex library sensors found._<br>
+                Enable them under **Settings → Devices & Services →
+                Plex → Configure**.
 
       # =======================================================================
       # COLUMN 2 – NOW PLAYING (auto-generated per active client)
@@ -159,6 +179,7 @@ views:
 
           # Auto-entities: one rich card per active stream
           - type: custom:auto-entities
+            show_empty: false
             card:
               type: vertical-stack
             card_param: cards
@@ -193,26 +214,10 @@ views:
               icon: mdi:plex
               tap_action:
                 action: more-info
-              shortcuts:
-                buttons:
-                  - icon: mdi:play-pause
-                    type: service
-                    id: media_player.media_play_pause
-                    data:
-                      entity_id: this.entity_id
-                  - icon: mdi:stop
-                    type: service
-                    id: media_player.media_stop
-                    data:
-                      entity_id: this.entity_id
-                  - icon: mdi:skip-next
-                    type: service
-                    id: media_player.media_next_track
-                    data:
-                      entity_id: this.entity_id
 
           # Detailed metadata block per active stream (button-card)
           - type: custom:auto-entities
+            show_empty: false
             card:
               type: vertical-stack
             card_param: cards
@@ -334,6 +339,11 @@ views:
               - condition: state
                 entity: input_select.plex_recently_added_filter
                 state_not: "Music"
+              - condition: template
+                value_template: >-
+                  {{ states('sensor.plex_recently_added_movies') not in
+                     ['unknown','unavailable','none'] and
+                     states.sensor.plex_recently_added_movies is not none }}
             card:
               type: custom:upcoming-media-card
               entity: sensor.plex_recently_added_movies
@@ -351,6 +361,11 @@ views:
               - condition: state
                 entity: input_select.plex_recently_added_filter
                 state_not: "Music"
+              - condition: template
+                value_template: >-
+                  {{ states('sensor.plex_recently_added_tv') not in
+                     ['unknown','unavailable','none'] and
+                     states.sensor.plex_recently_added_tv is not none }}
             card:
               type: custom:upcoming-media-card
               entity: sensor.plex_recently_added_tv
@@ -368,6 +383,11 @@ views:
               - condition: state
                 entity: input_select.plex_recently_added_filter
                 state_not: "TV"
+              - condition: template
+                value_template: >-
+                  {{ states('sensor.plex_recently_added_music') not in
+                     ['unknown','unavailable','none'] and
+                     states.sensor.plex_recently_added_music is not none }}
             card:
               type: custom:upcoming-media-card
               entity: sensor.plex_recently_added_music
@@ -375,6 +395,24 @@ views:
               image_style: poster
               max: 6
               date: mmdd
+
+          # Fallback: shown when none of the recently-added sensors exist.
+          # The optional `plex_recently_added` custom integration creates them.
+          - type: conditional
+            conditions:
+              - condition: template
+                value_template: >-
+                  {{ states.sensor.plex_recently_added_movies is none and
+                     states.sensor.plex_recently_added_tv is none and
+                     states.sensor.plex_recently_added_music is none }}
+            card:
+              type: markdown
+              content: >-
+                _No `sensor.plex_recently_added_*` entities found._<br><br>
+                Install the optional
+                [**plex_recently_added**](https://github.com/custom-components/plex_recently_added)
+                custom integration via HACS → Integrations to populate
+                this section with new movies, episodes, and albums.
 
   # ===========================================================================
   # SECONDARY VIEW – Coming Soon (Sonarr / Radarr)

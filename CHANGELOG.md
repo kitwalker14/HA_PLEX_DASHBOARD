@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-04-21
+
+### Fixed
+- **Bandwidth gauge "Configuration error":** the
+  `sensor.plex_total_bandwidth_mbps` template returned a whitespace-padded
+  string from its `{% else %}` branch, which the `gauge` card couldn't
+  parse as numeric. Tightened Jinja whitespace and added
+  `device_class: data_rate` + `state_class: measurement` so the value is
+  always a clean float.
+- **Now Playing "Configuration error" (×2):** removed
+  `shortcuts.buttons[].data.entity_id: this.entity_id` from the
+  mini-media-player options block. Auto-entities does not substitute
+  `this.entity_id` inside nested `data:` keys, so the resulting card
+  config was invalid. The shortcut services already target the card's
+  own entity by default.
+
+### Changed
+- **Libraries section** is now graceful when the Plex integration hasn't
+  exposed library sensors: `auto-entities` uses `show_empty: false`, and
+  a hint card explains how to enable them under Plex → Configure.
+- **Recently Added section** is now graceful when the optional
+  `sensor.plex_recently_added_*` entities (from the
+  `plex_recently_added` custom integration) don't exist. Each
+  upcoming-media-card is wrapped in a template-condition for entity
+  existence, and a fallback markdown card points to the optional HACS
+  integration.
+
 ## [2.1.0] - 2026-04-21
 
 ### Changed

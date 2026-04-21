@@ -65,13 +65,15 @@ template:
         unique_id: plex_total_bandwidth_mbps
         icon: mdi:speedometer
         unit_of_measurement: "Mbps"
+        device_class: data_rate
+        state_class: measurement
         state: >-
-          {% set tautulli = states('sensor.tautulli_bandwidth_total') %}
-          {% if tautulli not in ['unknown','unavailable','none', None] %}
+          {%- set tautulli = states('sensor.tautulli_bandwidth_total') -%}
+          {%- if tautulli not in ['unknown','unavailable','none', None] -%}
             {{ (tautulli | float(0) / 1000) | round(1) }}
-          {% else %}
+          {%- else -%}
             0
-          {% endif %}
+          {%- endif -%}
 
       # ---------- Plex server up/down ----------
       - name: "Plex Server Online"
