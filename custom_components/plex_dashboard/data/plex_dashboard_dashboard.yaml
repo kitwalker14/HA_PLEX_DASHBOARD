@@ -120,8 +120,12 @@ views:
             heading_style: subtitle
             icon: mdi:bookshelf
 
+          # Library counts via auto-entities. We use `else:` (a fallback card
+          # rendered when zero entities match) instead of `show_empty:false`,
+          # because some HA versions render the zero-entity entities-card as
+          # a "Configuration error" tile. The else card is a tiny markdown
+          # hint pointing the user at the Plex integration's Configure page.
           - type: custom:auto-entities
-            show_empty: false
             card:
               type: entities
               state_color: false
@@ -134,20 +138,7 @@ views:
                 - state: "unavailable"
             sort:
               method: name
-
-          # Hint shown when no library sensors are exposed by the Plex
-          # integration (auto-entities returns an empty card and is hidden
-          # via show_empty:false above; this markdown explains how to enable
-          # them). It's harmless when libraries do appear because users will
-          # see both, so we wrap it in a template condition.
-          - type: conditional
-            conditions:
-              - condition: template
-                value_template: >-
-                  {{ states.sensor
-                     | selectattr('entity_id','match','^sensor\\.plex_library_')
-                     | list | count == 0 }}
-            card:
+            else:
               type: markdown
               content: >-
                 _No Plex library sensors found._<br>
@@ -179,7 +170,13 @@ views:
 
           # Auto-entities: one rich mini-media-player per active stream.
           # mini-media-player handles artwork, title, progress, and controls,
-          # so we don't need the previous custom button-card metadata block.
+          # so we don't need a separate metadata block.
+          #
+          # NOTE: per auto-entities docs, the `options:` block (which receives
+          # the `this.entity_id` substitution) MUST live inside each
+          # `filter.include[]` entry, not at the top level of auto-entities --
+          # a top-level `options:` is silently ignored, which is what made
+          # earlier versions emit broken cards with no `type:`.
           - type: custom:auto-entities
             show_empty: false
             card:
@@ -189,10 +186,40 @@ views:
               include:
                 - entity_id: media_player.plex_*
                   state: playing
+                  options:
+                    type: custom:mini-media-player
+                    entity: this.entity_id
+                    artwork: full-cover-fanart
+                    info: scroll
+                    icon: mdi:plex
+                    hide:
+                      power: true
+                      volume: true
+                      runtime: true
                 - entity_id: media_player.plex_*
                   state: paused
+                  options:
+                    type: custom:mini-media-player
+                    entity: this.entity_id
+                    artwork: full-cover-fanart
+                    info: scroll
+                    icon: mdi:plex
+                    hide:
+                      power: true
+                      volume: true
+                      runtime: true
                 - entity_id: media_player.plex_*
                   state: buffering
+                  options:
+                    type: custom:mini-media-player
+                    entity: this.entity_id
+                    artwork: full-cover-fanart
+                    info: scroll
+                    icon: mdi:plex
+                    hide:
+                      power: true
+                      volume: true
+                      runtime: true
               exclude:
                 - state: "unavailable"
                 - state: "unknown"
@@ -201,16 +228,6 @@ views:
             sort:
               method: state
               reverse: true
-            options:
-              type: custom:mini-media-player
-              entity: this.entity_id
-              artwork: full-cover-fanart
-              info: scroll
-              icon: mdi:plex
-              hide:
-                power: true
-                volume: true
-                runtime: true
 
       # =======================================================================
       # COLUMN 4 – CLIENTS + RECENTLY ADDED
@@ -259,11 +276,12 @@ views:
                   name: Show
 
           # Movies recently added.
-          # Two layers of guard: (1) sensor must exist, (2) sensor's state must
-          # parse as a positive integer count of items (upcoming-media-card
-          # sensors expose a numeric state). When the sensor does not exist at
-          # all, states.sensor.<x> is None, so the chained dot-attribute access
-          # in the filter check would raise; we short-circuit on existence.
+          # Three layers of guard:
+          # (1) sensor must exist (states.sensor.<x> is not none)
+          # (2) sensor must expose the `data` attribute that upcoming-media-card
+          #     requires -- if a same-named sensor exists from another source
+          #     it would render as "Configuration error" without this check
+          # (3) the filter helper must select All or this category
           - type: conditional
             conditions:
               - condition: template
@@ -271,7 +289,8 @@ views:
                   {% set s = states.sensor.plex_recently_added_movies %}
                   {% set f = states('input_select.plex_recently_added_filter') %}
                   {{ s is not none
-                     and s.state not in ['unknown','unavailable','none','0']
+                     and s.attributes.data is defined
+                     and (s.attributes.data | count) > 0
                      and f in ['All','Movies','unknown'] }}
             card:
               type: custom:upcoming-media-card
@@ -289,7 +308,8 @@ views:
                   {% set s = states.sensor.plex_recently_added_tv %}
                   {% set f = states('input_select.plex_recently_added_filter') %}
                   {{ s is not none
-                     and s.state not in ['unknown','unavailable','none','0']
+                     and s.attributes.data is defined
+                     and (s.attributes.data | count) > 0
                      and f in ['All','TV','unknown'] }}
             card:
               type: custom:upcoming-media-card
@@ -307,7 +327,8 @@ views:
                   {% set s = states.sensor.plex_recently_added_music %}
                   {% set f = states('input_select.plex_recently_added_filter') %}
                   {{ s is not none
-                     and s.state not in ['unknown','unavailable','none','0']
+                     and s.attributes.data is defined
+                     and (s.attributes.data | count) > 0
                      and f in ['All','Music','unknown'] }}
             card:
               type: custom:upcoming-media-card
@@ -318,23 +339,34 @@ views:
               date: mmdd
 
           # Fallback markdown: shown when none of the recently-added sensors
-          # exist. The optional `plex_recently_added` HACS custom integration
-          # creates them.
+          # exist OR none of them carry the upcoming-media-card-compatible
+          # `data` attribute. The optional `plex_recently_added` HACS custom
+          # integration creates compliant sensors.
           - type: conditional
             conditions:
               - condition: template
                 value_template: >-
-                  {{ states.sensor.plex_recently_added_movies is none
-                     and states.sensor.plex_recently_added_tv is none
-                     and states.sensor.plex_recently_added_music is none }}
+                  {% set m = states.sensor.plex_recently_added_movies %}
+                  {% set t = states.sensor.plex_recently_added_tv %}
+                  {% set u = states.sensor.plex_recently_added_music %}
+                  {% set has = namespace(any=false) %}
+                  {% for s in [m, t, u] %}
+                    {% if s is not none and s.attributes.data is defined
+                          and (s.attributes.data | count) > 0 %}
+                      {% set has.any = true %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ not has.any }}
             card:
               type: markdown
               content: >-
-                _No `sensor.plex_recently_added_*` entities found._<br><br>
+                _No usable `sensor.plex_recently_added_*` entities found._
+                <br><br>
                 Install the optional
                 [**plex_recently_added**](https://github.com/custom-components/plex_recently_added)
-                custom integration via HACS → Integrations to populate
-                this section with new movies, episodes, and albums.
+                HACS custom integration to populate this section with new
+                movies, episodes, and albums. (The Plex core integration
+                does **not** create these sensors.)
 
   # ===========================================================================
   # SECONDARY VIEW – Coming Soon (Sonarr / Radarr)

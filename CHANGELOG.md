@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.4] - 2026-04-21
+
+### Fixed
+- **Now Playing "Configuration error" cards (root cause)**: per
+  auto-entities documentation, the `options:` block (which receives the
+  `this.entity_id` substitution) MUST live inside each
+  `filter.include[]` entry. Previous versions had `options:` at the top
+  level of `auto-entities`, which is silently ignored -- the card got a
+  list of bare entities with no `type:` and rendered as "Configuration
+  error" tiles. Now Playing now correctly emits one
+  `mini-media-player` per active stream.
+- **Libraries "Configuration error"** when no Plex library sensors
+  exist: switched from `show_empty:false` + separate conditional hint
+  to auto-entities' built-in `else:` fallback card. Some HA versions
+  rendered the zero-entity entities-card as a config-error tile.
+- **Recently Added "Configuration error" 2x2 grid**: the conditionals
+  now also require the sensor to expose the `data` attribute (a
+  non-empty list) that `upcoming-media-card` requires. A same-named
+  sensor without that attribute would let the conditional pass but the
+  card would error. Fallback markdown now also triggers on
+  `data`-less sensors, not just missing entities.
+
+### Notes
+- v2.1.2's hash tracking will auto-update existing dashboards on the
+  next reload after upgrade. No need to manually toggle Reset.
+
 ## [2.1.3] - 2026-04-21
 
 ### Fixed
