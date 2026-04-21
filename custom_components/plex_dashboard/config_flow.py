@@ -8,7 +8,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
@@ -127,11 +127,14 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
         return PlexDashboardOptionsFlow(config_entry)
 
 
-class PlexDashboardOptionsFlow(config_entries.OptionsFlow):
+class PlexDashboardOptionsFlow(OptionsFlow):
     """Allow re-running file install / dashboard registration."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+        # Do NOT assign self.config_entry — it is provided by the base class
+        # in modern HA and assigning to it raises an error.
+        self._entry_data = dict(config_entry.data)
+        self._entry_options = dict(config_entry.options)
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -139,7 +142,7 @@ class PlexDashboardOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        current = {**self.config_entry.data, **self.config_entry.options}
+        current = {**self._entry_data, **self._entry_options}
         schema = vol.Schema(
             {
                 vol.Required(

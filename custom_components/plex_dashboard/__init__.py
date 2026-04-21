@@ -340,19 +340,20 @@ async def _async_check_frontend_cards(hass: HomeAssistant) -> None:
     use a filename-substring heuristic. Any required card whose substring is
     absent from every registered resource URL gets a Repair issue raised.
     """
-    lovelace_data = hass.data.get(LOVELACE_DOMAIN)
-    resources_collection = (
-        lovelace_data.get("resources") if lovelace_data else None
-    )
+    lovelace_data = hass.data.get(LOVELACE_DATA)
+    resources_collection = getattr(lovelace_data, "resources", None) if lovelace_data else None
     resource_urls: list[str] = []
     if resources_collection is not None:
         try:
             await resources_collection.async_get_info()
         except Exception:  # noqa: BLE001
             pass
-        for item in resources_collection.async_items():
-            url = item.get("url") or ""
-            resource_urls.append(url.lower())
+        try:
+            for item in resources_collection.async_items():
+                url = (item.get("url") if isinstance(item, dict) else getattr(item, "url", "")) or ""
+                resource_urls.append(url.lower())
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Could not enumerate lovelace resources: %s", err)
 
     blob = " ".join(resource_urls)
 
