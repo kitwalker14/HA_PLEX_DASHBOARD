@@ -44,19 +44,19 @@ dashboard-registration work for you.
 
 ### Frontend cards (HACS Frontend)
 
-Only **four** custom cards are required. Click each badge to open it
+Only **three** custom cards are required. Click each badge to open it
 directly in HACS (one-click install), then reload your browser. Any
 missing card will also be surfaced as a single Repair after install.
 
 | Card | One-click install |
 | --- | --- |
 | Auto-entities | [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=thomasloven&repository=lovelace-auto-entities&category=plugin) |
-| Button card | [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-cards&repository=button-card&category=plugin) |
 | Mini media player | [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kalkih&repository=mini-media-player&category=plugin) |
 | Upcoming media card | [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-cards&repository=upcoming-media-card&category=plugin) |
 
-> Built-in `gauge`, `tile`, `markdown`, and `entities` cards now replace
-> the previous `mushroom-*` and `bar-card` dependencies.
+> Built-in `gauge`, `tile`, `markdown`, `conditional`, and `entities`
+> cards now replace the previous `mushroom-*`, `bar-card`, and
+> `button-card` dependencies.
 
 ---
 

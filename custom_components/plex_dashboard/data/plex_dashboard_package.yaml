@@ -61,12 +61,15 @@ template:
                | map(attribute='entity_id') | list }}
 
       # ---------- Total bandwidth (from Tautulli, optional) ----------
+      # NOTE: We deliberately do NOT set device_class:data_rate because HA's
+      # data_rate device class only accepts canonical units (bit/s, Mbit/s,
+      # MB/s, etc.), and "Mbps" is not in that allow-list -- it would make
+      # the gauge card raise a "Configuration error". Plain unit_of_measurement
+      # is sufficient for display in the gauge.
       - name: "Plex Total Bandwidth Mbps"
         unique_id: plex_total_bandwidth_mbps
         icon: mdi:speedometer
         unit_of_measurement: "Mbps"
-        device_class: data_rate
-        state_class: measurement
         state: >-
           {%- set tautulli = states('sensor.tautulli_bandwidth_total') -%}
           {%- if tautulli not in ['unknown','unavailable','none', None] -%}

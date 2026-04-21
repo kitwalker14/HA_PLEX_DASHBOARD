@@ -14,11 +14,11 @@
 #
 #  ---- HACS REQUIREMENTS (frontend) ----
 #    - auto-entities          (custom:auto-entities)
-#    - button-card            (custom:button-card)
 #    - mini-media-player      (custom:mini-media-player)
 #    - upcoming-media-card    (recently added / sonarr / radarr)
-#  Built-in cards (gauge, tile, markdown, entities) replace the previous
-#  mushroom + bar-card dependencies, so HACS no longer needs them.
+#  Built-in cards (gauge, tile, markdown, entities, conditional) replace the
+#  previous mushroom + bar-card + button-card dependencies, so HACS no longer
+#  needs them.
 #
 #  ---- PLACEHOLDERS ----
 #    PLEX_SERVER_NAME    -> server slug (sensor.plex_<slug>)
@@ -177,7 +177,9 @@ views:
                 ### <ha-icon icon="mdi:sleep"></ha-icon> Nothing is playing
                 _All Plex clients are idle_
 
-          # Auto-entities: one rich card per active stream
+          # Auto-entities: one rich mini-media-player per active stream.
+          # mini-media-player handles artwork, title, progress, and controls,
+          # so we don't need the previous custom button-card metadata block.
           - type: custom:auto-entities
             show_empty: false
             card:
@@ -203,95 +205,12 @@ views:
               type: custom:mini-media-player
               entity: this.entity_id
               artwork: full-cover-fanart
-              hide:
-                power: true
-                source: false
-                info: false
-                progress: false
-                runtime: true
-                volume: true
               info: scroll
               icon: mdi:plex
-              tap_action:
-                action: more-info
-
-          # Detailed metadata block per active stream (button-card)
-          - type: custom:auto-entities
-            show_empty: false
-            card:
-              type: vertical-stack
-            card_param: cards
-            filter:
-              include:
-                - entity_id: media_player.plex_*
-                  state: playing
-                - entity_id: media_player.plex_*
-                  state: paused
-            options:
-              type: custom:button-card
-              entity: this.entity_id
-              show_name: false
-              show_state: false
-              show_icon: false
-              styles:
-                card:
-                  - padding: 12px
-                  - border-radius: 12px
-                  - background: 'rgba(0,0,0,0.35)'
-                  - color: white
-                grid:
-                  - grid-template-areas: '"art info"'
-                  - grid-template-columns: 130px 1fr
-                  - grid-gap: 14px
-              custom_fields:
-                art: |
-                  [[[
-                    const img = entity.attributes.entity_picture
-                      || entity.attributes.entity_picture_local
-                      || '/local/images/plex_placeholder.png';
-                    return `<img src="${img}" style="width:130px;border-radius:8px;
-                            box-shadow:0 4px 14px rgba(0,0,0,.5);" />`;
-                  ]]]
-                info: |
-                  [[[
-                    const a = entity.attributes;
-                    const title  = a.media_title || 'Unknown';
-                    const series = a.media_series_title;
-                    const season = a.media_season;
-                    const ep     = a.media_episode;
-                    const album  = a.media_album_name;
-                    const artist = a.media_artist;
-                    const dur    = a.media_duration;
-                    const pos    = a.media_position;
-                    const pct    = (dur && pos) ? Math.round((pos/dur)*100) : 0;
-                    const fmt    = (s)=> {
-                      if(!s) return '';
-                      const m=Math.floor(s/60), sec=Math.floor(s%60).toString().padStart(2,'0');
-                      const h=Math.floor(m/60), mm=(m%60).toString().padStart(2,'0');
-                      return h>0 ? `${h}:${mm}:${sec}` : `${m}:${sec}`;
-                    };
-                    const sub = series
-                      ? `${series} · S${String(season).padStart(2,'0')}E${String(ep).padStart(2,'0')}`
-                      : (artist ? `${artist}${album?' · '+album:''}` : (a.media_content_type||''));
-                    return `
-                      <div style="display:flex;flex-direction:column;gap:6px;">
-                        <div style="font-size:1.05em;font-weight:600;line-height:1.2;">${title}</div>
-                        <div style="opacity:.85;font-size:.9em;">${sub}</div>
-                        <div style="opacity:.7;font-size:.8em;">
-                          <ha-icon icon="mdi:account" style="--mdc-icon-size:14px;"></ha-icon>
-                          ${entity.attributes.friendly_name || ''} ·
-                          <ha-icon icon="mdi:circle" style="--mdc-icon-size:10px;color:${
-                            entity.state==='playing'?'#4caf50':entity.state==='paused'?'#ff9800':'#2196f3'
-                          };"></ha-icon> ${entity.state}
-                        </div>
-                        <div style="background:rgba(255,255,255,.15);height:6px;border-radius:3px;overflow:hidden;margin-top:4px;">
-                          <div style="background:#e5a00d;height:100%;width:${pct}%;"></div>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;font-size:.75em;opacity:.7;">
-                          <span>${fmt(pos)}</span><span>${fmt(dur)}</span>
-                        </div>
-                      </div>`;
-                  ]]]
+              hide:
+                power: true
+                volume: true
+                runtime: true
 
       # =======================================================================
       # COLUMN 4 – CLIENTS + RECENTLY ADDED
@@ -324,26 +243,36 @@ views:
             heading_style: title
             icon: mdi:new-box
 
-          # Filter pill
-          - type: entities
-            entities:
-              - entity: input_select.plex_recently_added_filter
-                name: Show
-
-          # Movies recently added
+          # Filter pill -- only render if the helper exists. The Plex Dashboard
+          # integration creates this input_select on setup, but if the user
+          # disabled "Create helpers" we hide the row to avoid "Entity not
+          # found" warnings.
           - type: conditional
             conditions:
-              - condition: state
-                entity: input_select.plex_recently_added_filter
-                state_not: "TV"
-              - condition: state
-                entity: input_select.plex_recently_added_filter
-                state_not: "Music"
               - condition: template
                 value_template: >-
-                  {{ states('sensor.plex_recently_added_movies') not in
-                     ['unknown','unavailable','none'] and
-                     states.sensor.plex_recently_added_movies is not none }}
+                  {{ states.input_select.plex_recently_added_filter is not none }}
+            card:
+              type: entities
+              entities:
+                - entity: input_select.plex_recently_added_filter
+                  name: Show
+
+          # Movies recently added.
+          # Two layers of guard: (1) sensor must exist, (2) sensor's state must
+          # parse as a positive integer count of items (upcoming-media-card
+          # sensors expose a numeric state). When the sensor does not exist at
+          # all, states.sensor.<x> is None, so the chained dot-attribute access
+          # in the filter check would raise; we short-circuit on existence.
+          - type: conditional
+            conditions:
+              - condition: template
+                value_template: >-
+                  {% set s = states.sensor.plex_recently_added_movies %}
+                  {% set f = states('input_select.plex_recently_added_filter') %}
+                  {{ s is not none
+                     and s.state not in ['unknown','unavailable','none','0']
+                     and f in ['All','Movies','unknown'] }}
             card:
               type: custom:upcoming-media-card
               entity: sensor.plex_recently_added_movies
@@ -355,17 +284,13 @@ views:
           # TV recently added
           - type: conditional
             conditions:
-              - condition: state
-                entity: input_select.plex_recently_added_filter
-                state_not: "Movies"
-              - condition: state
-                entity: input_select.plex_recently_added_filter
-                state_not: "Music"
               - condition: template
                 value_template: >-
-                  {{ states('sensor.plex_recently_added_tv') not in
-                     ['unknown','unavailable','none'] and
-                     states.sensor.plex_recently_added_tv is not none }}
+                  {% set s = states.sensor.plex_recently_added_tv %}
+                  {% set f = states('input_select.plex_recently_added_filter') %}
+                  {{ s is not none
+                     and s.state not in ['unknown','unavailable','none','0']
+                     and f in ['All','TV','unknown'] }}
             card:
               type: custom:upcoming-media-card
               entity: sensor.plex_recently_added_tv
@@ -377,17 +302,13 @@ views:
           # Music recently added
           - type: conditional
             conditions:
-              - condition: state
-                entity: input_select.plex_recently_added_filter
-                state_not: "Movies"
-              - condition: state
-                entity: input_select.plex_recently_added_filter
-                state_not: "TV"
               - condition: template
                 value_template: >-
-                  {{ states('sensor.plex_recently_added_music') not in
-                     ['unknown','unavailable','none'] and
-                     states.sensor.plex_recently_added_music is not none }}
+                  {% set s = states.sensor.plex_recently_added_music %}
+                  {% set f = states('input_select.plex_recently_added_filter') %}
+                  {{ s is not none
+                     and s.state not in ['unknown','unavailable','none','0']
+                     and f in ['All','Music','unknown'] }}
             card:
               type: custom:upcoming-media-card
               entity: sensor.plex_recently_added_music
@@ -396,15 +317,16 @@ views:
               max: 6
               date: mmdd
 
-          # Fallback: shown when none of the recently-added sensors exist.
-          # The optional `plex_recently_added` custom integration creates them.
+          # Fallback markdown: shown when none of the recently-added sensors
+          # exist. The optional `plex_recently_added` HACS custom integration
+          # creates them.
           - type: conditional
             conditions:
               - condition: template
                 value_template: >-
-                  {{ states.sensor.plex_recently_added_movies is none and
-                     states.sensor.plex_recently_added_tv is none and
-                     states.sensor.plex_recently_added_music is none }}
+                  {{ states.sensor.plex_recently_added_movies is none
+                     and states.sensor.plex_recently_added_tv is none
+                     and states.sensor.plex_recently_added_music is none }}
             card:
               type: markdown
               content: >-

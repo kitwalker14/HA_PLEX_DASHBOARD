@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.3] - 2026-04-21
+
+### Fixed
+- **Bandwidth gauge "Configuration error"**: removed `device_class:
+  data_rate` from the bandwidth template sensor. HA's `data_rate` device
+  class only accepts canonical units (`bit/s`, `Mbit/s`, `MB/s`, etc.);
+  the sensor's `Mbps` unit isn't in that allow-list and made the gauge
+  card refuse to render.
+- **Now Playing "Configuration error" cards (4×)**: removed the
+  duplicate per-stream `button-card` metadata block. Each stream now
+  renders as a single `mini-media-player` (`full-cover-fanart` artwork,
+  scrolling info, progress bar built in), eliminating the brittle
+  `auto-entities` → nested-options → `this.entity_id` substitution chain
+  that was failing in the secondary card. Cleaner, fewer dependencies.
+- **Recently Added "Entity not found"**: the `input_boolean` /
+  `input_select` integrations are loaded lazily by HA, so on a fresh
+  install where the user has no helpers our `async_create_item` calls
+  silently no-op'd. We now force-load both integrations via
+  `async_setup_component` before adding our items, and surface failures
+  as warnings instead of debug logs.
+- **Empty `New Movies` / `New Episodes` / `New Albums` cards**: the
+  per-section conditionals now also require the sensor's state to be
+  non-zero / non-unknown, and the filter `entities` row only renders
+  when the helper actually exists.
+
+### Changed
+- **Frontend dependencies down to 3** (was 4): `button-card` is no
+  longer required. Required cards are now `auto-entities`,
+  `mini-media-player`, `upcoming-media-card`. README quick-install
+  table and Repairs check updated accordingly.
+
+### Notes
+- Existing installs with v2.1.2's hash tracking will auto-update the
+  dashboard on first reload after upgrade. Older installs (≤ v2.1.1)
+  still need the one-shot **Reset dashboard to bundled version** toggle
+  in the integration's Configure page to pick up these fixes.
+
 ## [2.1.2] - 2026-04-21
 
 ### Added

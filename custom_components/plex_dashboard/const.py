@@ -43,16 +43,12 @@ PLACEHOLDER_SLUG = "PLEX_SERVER_NAME"
 
 # Required HACS frontend cards (custom: element name -> friendly name + repo).
 # Kept intentionally small: anything that has a built-in equivalent (mushroom,
-# bar-card) has been replaced in the bundled dashboard YAML. These four have
-# no built-in alternative.
+# bar-card, button-card) has been replaced in the bundled dashboard YAML.
+# These three have no built-in alternative.
 REQUIRED_FRONTEND_CARDS: dict[str, dict[str, str]] = {
     "auto-entities": {
         "name": "Auto-entities",
         "repo": "thomasloven/lovelace-auto-entities",
-    },
-    "button-card": {
-        "name": "Button card",
-        "repo": "custom-cards/button-card",
     },
     "mini-media-player": {
         "name": "Mini media player",
