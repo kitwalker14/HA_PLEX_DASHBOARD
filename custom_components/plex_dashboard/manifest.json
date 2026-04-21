@@ -1,13 +1,13 @@
 {
   "domain": "plex_dashboard",
   "name": "Plex Dashboard",
-  "version": "2.0.0",
-  "documentation": "https://github.com/kitwalker14/HA_PLEX_DASHBOARD",
-  "issue_tracker": "https://github.com/kitwalker14/HA_PLEX_DASHBOARD/issues",
   "codeowners": ["@kitwalker14"],
   "config_flow": true,
-  "iot_class": "local_push",
-  "integration_type": "service",
   "dependencies": ["frontend", "lovelace", "input_boolean", "input_select", "repairs"],
-  "requirements": []
+  "documentation": "https://github.com/kitwalker14/HA_PLEX_DASHBOARD",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/kitwalker14/HA_PLEX_DASHBOARD/issues",
+  "requirements": [],
+  "version": "2.0.0"
 }

@@ -21,7 +21,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers import config_validation as cv, issue_registry as ir
 
 from .const import (
     CONF_CREATE_HELPERS,
@@ -90,6 +90,9 @@ def _copy_with_substitution(
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """No YAML configuration; setup via config entry."""
     return True
+
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

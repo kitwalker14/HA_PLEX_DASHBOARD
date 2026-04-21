@@ -39,11 +39,11 @@
   },
   "issues": {
     "missing_frontend_card": {
-      "title": "Plex Dashboard: missing frontend card '{card}'",
+      "title": "Plex Dashboard: missing frontend card {card}",
       "fix_flow": {
         "step": {
           "confirm": {
-            "title": "Install '{card}'",
+            "title": "Install {card}",
             "description": "The Plex Dashboard requires the **{card}** frontend card.\n\nInstall it via HACS:\n\n1. Open HACS \u2192 Frontend\n2. Search for **{card}**\n3. Install and reload your browser\n\nRepository: `{repo}`"
           }
         }
