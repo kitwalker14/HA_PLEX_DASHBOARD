@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-04-21
+
+### Fixed
+- `_async_check_frontend_cards`: use `LOVELACE_DATA` HassKey and access
+  `.resources` as an attribute. `LovelaceData` is a dataclass, not a
+  dict, so `.get("resources")` raised `AttributeError` and broke
+  `async_setup_entry` on the second restart.
+- `_async_register_dashboard` was called without its required
+  `dashboard_yaml_text` argument; now reads the just-written dashboard
+  YAML from disk and passes its contents.
+- `OptionsFlow`: stop assigning `self.config_entry` (forbidden in
+  modern HA); copy data/options into private fields instead. Also
+  import `OptionsFlow` directly from `config_entries`.
+
 ## [2.0.0] - 2026-04-21
 
 ### Changed
