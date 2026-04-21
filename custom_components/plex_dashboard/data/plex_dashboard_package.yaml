@@ -1,43 +1,16 @@
 # =============================================================================
 #  PLEX DASHBOARD PACKAGE
-#  Drop into:  /config/packages/plex_dashboard.yaml
-#  Make sure configuration.yaml has:
-#     homeassistant:
-#       packages: !include_dir_named packages
-# =============================================================================
+#  Installed by the Plex Dashboard integration into:
+#     /config/packages/plex_dashboard.yaml
 #
-#  Provides template sensors that aggregate Plex media_player + Tautulli + Plex
-#  Recently Added data into a single, dashboard-friendly shape.
+#  The integration ensures `homeassistant.packages` is configured.
+#  The PLEX_SERVER_NAME placeholder is auto-substituted on install with the
+#  slug supplied during config flow.
 #
-#  ---- PLACEHOLDERS TO FIND/REPLACE ----
-#    PLEX_SERVER_NAME   -> the slug of your Plex server (e.g. "myplex")
-#                          As shown in entity_ids like:
-#                          sensor.plex_PLEX_SERVER_NAME
-#                          sensor.plex_library_PLEX_SERVER_NAME_movies
-#  --------------------------------------
+#  Helpers (input_boolean / input_select) are NOT defined here -- they are
+#  created via the helper registry by the integration so they show up under
+#  Settings -> Devices & services -> Helpers and survive package reloads.
 # =============================================================================
-
-# -----------------------------------------------------------------------------
-# INPUTS – dashboard controls
-# -----------------------------------------------------------------------------
-input_boolean:
-  plex_show_paused:
-    name: Show paused streams
-    icon: mdi:pause-circle-outline
-  plex_show_offline_clients:
-    name: Show idle clients
-    icon: mdi:monitor-off
-
-input_select:
-  plex_recently_added_filter:
-    name: Recently Added Filter
-    options:
-      - All
-      - Movies
-      - TV
-      - Music
-    initial: All
-    icon: mdi:filter-variant
 
 # -----------------------------------------------------------------------------
 # TEMPLATE SENSORS

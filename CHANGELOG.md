@@ -7,10 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-21
+
 ### Changed
-- README: added one-click My Home Assistant install link
-- README: documented HACS default index pending status
-- README: clarified that custom-repository install is a temporary fallback
+- **BREAKING:** Repo is now a HACS **Integration** (`plex_dashboard`)
+  instead of a HACS Theme. The theme, dashboard YAML, and package YAML
+  are bundled inside the integration and installed automatically.
+- Install flow is now: HACS → Integration → Add Integration →
+  pick Plex slug → restart. No more `install.sh` step.
+
+### Added
+- `custom_components/plex_dashboard/` integration with config flow
+- Auto-detection of Plex server slug from existing `sensor.plex_*` entities
+- Auto-substitution of `PLEX_SERVER_NAME` placeholder in bundled YAML
+- Runtime registration of the Lovelace dashboard (storage mode)
+- Auto-creation of `input_boolean` and `input_select` helpers via the
+  helper components (visible under Settings → Helpers)
+- Repairs entries for missing HACS frontend cards
+  (`mini-media-player`, `button-card`, `auto-entities`, `bar-card`,
+  `upcoming-media-card`, `card-mod`)
+- Repair entry when `homeassistant.packages:` is not enabled
+- Options flow to re-run the install steps (e.g. after switching servers)
+- Hassfest workflow added to validation
+
+### Removed
+- `themes/` directory (theme is now bundled in the integration)
+- `extras/` directory (dashboard + package are now bundled)
+- `scripts/install.sh` (no longer needed)
+- HACS Theme submission to `hacs/default` is obsolete
 
 ## [1.0.0] - 2026-04-21
 

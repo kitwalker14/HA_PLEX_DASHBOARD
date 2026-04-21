@@ -10,13 +10,20 @@ on:
 
 jobs:
   hacs:
-    name: HACS validation (theme)
+    name: HACS validation (integration)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: hacs/action@main
         with:
-          category: theme
+          category: integration
+
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
 
   yaml-lint:
     name: YAML lint
@@ -25,7 +32,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ibiqlik/action-yamllint@v3
         with:
-          file_or_dir: themes/ extras/
+          file_or_dir: custom_components/plex_dashboard/data/
           config_data: |
             extends: default
             rules:
@@ -43,12 +50,3 @@ jobs:
                 max-spaces-inside: 1
               brackets:
                 max-spaces-inside: 1
-
-  shellcheck:
-    name: Shellcheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ludeeus/action-shellcheck@master
-        with:
-          scandir: ./scripts

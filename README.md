@@ -2,35 +2,16 @@
 
 ![Plex Dashboard banner](docs/banner.png)
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Theme-41BDF5.svg)](https://github.com/hacs/integration)
-[![HACS Default PR](https://img.shields.io/badge/HACS%20default-pending-orange.svg)](https://github.com/hacs/default/pulls?q=is%3Apr+kitwalker14%2FHA_PLEX_DASHBOARD)
+[![hacs_badge](https://img.shields.io/badge/HACS-Integration-41BDF5.svg)](https://github.com/hacs/integration)
 ![Validate](https://github.com/kitwalker14/HA_PLEX_DASHBOARD/actions/workflows/validate.yml/badge.svg)
 ![Release](https://github.com/kitwalker14/HA_PLEX_DASHBOARD/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-> **Status:** This repo is pending inclusion in the
-> [HACS default themes index](https://github.com/hacs/default/pulls?q=is%3Apr+kitwalker14%2FHA_PLEX_DASHBOARD).
-> Until merged, install via the **Custom repositories** flow below.
-> After merge, it will appear directly in the HACS Theme catalogue.
-
 A polished 4-column **Plex dashboard** for Home Assistant with rich
 now-playing metadata, automatic per-client cards, server stats, recently
-added posters, and Sonarr/Radarr coming-soon — plus a matching Plex amber
-**HACS theme**.
-
----
-
-## Why two install steps?
-
-HACS does not have a category for distributing dashboard YAML or package YAML
-— only `.js` plugins, integrations, themes, etc. So this repo ships:
-
-| Component | Delivery |
-| --- | --- |
-| **Plex Dark theme** | HACS Theme (one click) |
-| **Dashboard YAML + package YAML** | GitHub Release zip + one-line installer script |
-
-Both updates flow through the same repo + release tags.
+added posters, and Sonarr/Radarr coming-soon — installed as a single
+HACS **integration** that does all the file-copy, helper-creation, and
+dashboard-registration work for you.
 
 ---
 
@@ -44,157 +25,91 @@ Both updates flow through the same repo + release tags.
 - **Client list** – every Plex client (active + idle), sorted by activity
 - **Recently added** – Movies / TV / Music with a filter pill
 - **Coming soon view** – Radarr + Sonarr upcoming releases
-- **Plex amber dark theme** (HACS-installable)
+- **Plex amber dark theme** – bundled and auto-installed
+
+---
+
+## Requirements
+
+- Home Assistant 2024.1 or newer
+- [HACS](https://hacs.xyz) installed
+- The official **Plex Media Server** integration set up
+  (provides the `sensor.plex_*` and `media_player.plex_*` entities)
+- `homeassistant.packages:` enabled in your `configuration.yaml`:
+  ```yaml
+  homeassistant:
+    packages: !include_dir_named packages
+  ```
+  (the integration will raise a Repair if this is missing)
+
+### Frontend cards (HACS Frontend)
+
+Install these via **HACS → Frontend** before or after install — the
+integration will surface a Repair for any that are missing:
+
+- `mini-media-player`
+- `button-card`
+- `auto-entities`
+- `bar-card`
+- `upcoming-media-card`
+- `card-mod`
 
 ---
 
 ## Installation
 
-### Step 1 — Install the theme via HACS
+### Step 1 — Add the repository to HACS
 
-#### Option A — One-click (My Home Assistant)
+[![Open your Home Assistant instance and open the repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kitwalker14&repository=HA_PLEX_DASHBOARD&category=integration)
 
-[![Open your Home Assistant instance and open the repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kitwalker14&repository=HA_PLEX_DASHBOARD&category=theme)
+Or manually: **HACS → ⋮ → Custom repositories**, paste
+`https://github.com/kitwalker14/HA_PLEX_DASHBOARD`, type **Integration**,
+**Add**, then **Download**.
 
-#### Option B — Manual (until HACS default index merges this repo)
+### Step 2 — Restart Home Assistant
 
-1. **HACS → ⋮ menu → Custom repositories**
-2. Repository: `https://github.com/kitwalker14/HA_PLEX_DASHBOARD`
-3. Type: **Theme**
-4. Click **Add**, then find **"Plex Dashboard"** in HACS Themes → **Download**
+### Step 3 — Add the integration
 
-> Once the [hacs/default PR](https://github.com/hacs/default/pulls?q=is%3Apr+kitwalker14%2FHA_PLEX_DASHBOARD)
-> is merged, neither step above is needed — the theme will be discoverable
-> directly in the HACS Theme catalogue.
+**Settings → Devices & Services → Add Integration → "Plex Dashboard"**.
 
-### Step 2 — Install the dashboard files
+Pick your Plex server slug from the dropdown (auto-detected from your
+existing `sensor.plex_*` entities) and submit.
 
-#### Option A — installer script (recommended)
+### Step 4 — Restart Home Assistant once more
 
-```sh
-curl -L https://github.com/kitwalker14/HA_PLEX_DASHBOARD/releases/latest/download/plex_dashboard_extras.zip -o /tmp/pd.zip
-unzip -o /tmp/pd.zip -d /tmp/pd
-HA_CONFIG=/config /tmp/pd/scripts/install.sh
-```
+The integration will copy:
 
-#### Option B — manual
+- `plex-dashboard.yaml` → `/config/themes/`
+- `plex_dashboard_package.yaml` → `/config/packages/`
+- `plex_dashboard_dashboard.yaml` → `/config/dashboards/`
 
-1. Download `plex_dashboard_extras.zip` from the
-   [latest Release](https://github.com/kitwalker14/HA_PLEX_DASHBOARD/releases/latest)
-2. Extract and copy:
-   - `extras/packages/plex_dashboard.yaml` → `/config/packages/`
-   - `extras/dashboards/plex_dashboard.yaml` → `/config/dashboards/`
+…create the helpers (`input_boolean.plex_show_paused`,
+`input_boolean.plex_show_offline_clients`,
+`input_select.plex_recently_added_filter`), and register the
+**Plex Dashboard** entry in the Lovelace sidebar.
 
-### Step 3 — Install the required HACS frontend cards
-
-| Card | Repo |
-| --- | --- |
-| Mushroom | `piitaya/lovelace-mushroom` |
-| Button card | `custom-cards/button-card` |
-| Mini media player | `kalkih/mini-media-player` |
-| Bar card | `custom-cards/bar-card` |
-| Auto-entities | `thomasloven/lovelace-auto-entities` |
-| Card-mod | `thomasloven/lovelace-card-mod` |
-| Upcoming media card | `custom-cards/upcoming-media-card` |
-
-### Step 4 — Wire it into `configuration.yaml`
-
-```yaml
-homeassistant:
-  packages: !include_dir_named packages
-
-lovelace:
-  mode: storage
-  dashboards:
-    plex-dashboard:
-      mode: yaml
-      title: Plex
-      icon: mdi:plex
-      show_in_sidebar: true
-      filename: dashboards/plex_dashboard.yaml
-```
-
-### Step 5 — Required HA integrations
-
-- **Plex** (official) – `media_player.plex_*`, `sensor.plex_*`
-- **Plex Recently Added** (custom_component) – `sensor.plex_recently_added_*`
-- **Radarr / Sonarr** (official) – Coming Soon view (optional)
-- **Tautulli** (official) – total bandwidth (optional)
-
-### Step 6 — Replace placeholders
-
-In `/config/packages/plex_dashboard.yaml` find/replace:
-
-| Placeholder | Replace with |
-| --- | --- |
-| `PLEX_SERVER_NAME` | Your Plex slug from `sensor.plex_<slug>` |
-
-### Step 7 — Restart & activate
-
-Restart HA, then **Profile → Theme → "Plex Dark"**.
+After the second restart, your new dashboard is in the sidebar — done.
 
 ---
 
 ## Updating
 
-- **Theme** – HACS will show an update badge; click Update
-- **Dashboard** – re-run the installer command from Step 2A; it overwrites
-  the two YAML files in place. Your `configuration.yaml` includes don't
-  change.
+Update via HACS like any other integration; new versions will refresh the
+bundled YAML on the next reload of the integration entry.
 
 ---
 
-## Repository layout
+## Uninstalling
 
-```text
-.
-├── hacs.json                                 # HACS theme manifest
-├── themes/
-│   └── plex-dashboard.yaml                   # ← what HACS installs
-├── extras/                                   # ← what the release zip ships
-│   ├── packages/plex_dashboard.yaml          #   template sensors, scripts
-│   └── dashboards/plex_dashboard.yaml        #   the dashboard
-├── scripts/install.sh                        # bundled installer
-├── .github/workflows/
-│   ├── validate.yml                          # HACS Action + yamllint
-│   └── release.yml                           # builds extras zip on tag push
-├── CHANGELOG.md
-├── CONTRIBUTING.md
-├── LICENSE
-└── README.md
-```
+**Settings → Devices & Services → Plex Dashboard → Delete**, then remove
+the integration via HACS. The copied YAML files in `themes/`, `packages/`,
+and `dashboards/` are left in place so you can keep customising them.
 
 ---
 
-## What the package adds
+## Development
 
-| Entity | Description |
-| --- | --- |
-| `sensor.plex_active_streams` | Total + `playing/paused/buffering` attrs |
-| `sensor.plex_active_client_ids` | Active `media_player.plex_*` ids list |
-| `sensor.plex_total_bandwidth_mbps` | From Tautulli (0 if absent) |
-| `sensor.plex_server_online` | `on`/`off` |
-| `binary_sensor.plex_anything_playing` | `on` if any stream active |
-| `script.plex_scan_all_libraries` | Scan all libraries |
-| `script.plex_pause_all` | Pause all active streams |
-| `input_boolean.plex_show_paused` | Dashboard toggle |
-| `input_boolean.plex_show_offline_clients` | Dashboard toggle |
-| `input_select.plex_recently_added_filter` | All / Movies / TV / Music |
-
----
-
-## Troubleshooting
-
-| Symptom | Fix |
-| --- | --- |
-| Theme not in HACS list | Make sure you added the repo as type **Theme** |
-| `Custom element doesn't exist: custom:mushroom-...` | Install the card via HACS, hard-refresh browser |
-| `sensor.plex_PLEX_SERVER_NAME` is `unavailable` | Replace the placeholder with your slug |
-| Now Playing column empty while streaming | Adjust the `media_player.plex_*` regex if your client entities don't match |
-| Recently added cards blank | Install **Plex Recently Added** custom component |
-| Coming Soon cards blank | Set up Radarr / Sonarr |
-
----
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 

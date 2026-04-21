@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Plex Dashboard",
+        "description": "This will install the Plex Dashboard YAML files, register a Lovelace dashboard, and create the required helpers.\n\nDetected Plex servers: {detected}",
+        "data": {
+          "plex_slug": "Plex server slug (e.g. 'myplex' from sensor.plex_myplex)",
+          "dashboard_url_path": "Dashboard URL path",
+          "install_theme": "Install Plex Dark theme to /config/themes/",
+          "install_package": "Install package to /config/packages/",
+          "register_dashboard": "Register Lovelace dashboard automatically",
+          "create_helpers": "Create input_boolean and input_select helpers"
+        }
+      }
+    },
+    "error": {
+      "slug_required": "A Plex server slug is required.",
+      "slug_invalid": "Slug must be lowercase letters, numbers and underscores only."
+    },
+    "abort": {
+      "already_configured": "Plex Dashboard is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Plex Dashboard options",
+        "data": {
+          "plex_slug": "Plex server slug",
+          "dashboard_url_path": "Dashboard URL path",
+          "install_theme": "Re-install Plex Dark theme",
+          "install_package": "Re-install package",
+          "register_dashboard": "Re-register Lovelace dashboard",
+          "create_helpers": "Re-create helpers"
+        }
+      }
+    }
+  },
+  "issues": {
+    "missing_frontend_card": {
+      "title": "Plex Dashboard: missing frontend card '{card}'",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Install '{card}'",
+            "description": "The Plex Dashboard requires the **{card}** frontend card.\n\nInstall it via HACS:\n\n1. Open HACS \u2192 Frontend\n2. Search for **{card}**\n3. Install and reload your browser\n\nRepository: `{repo}`"
+          }
+        }
+      }
+    },
+    "packages_not_loaded": {
+      "title": "Plex Dashboard: packages not enabled",
+      "description": "The Plex Dashboard package was written to `/config/packages/plex_dashboard.yaml`, but it doesn't appear to be loaded.\n\nAdd this to your `configuration.yaml` and restart Home Assistant:\n\n```yaml\nhomeassistant:\n  packages: !include_dir_named packages\n```"
+    }
+  }
+}
