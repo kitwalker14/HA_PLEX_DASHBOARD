@@ -148,8 +148,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # ---- Register Lovelace dashboard ---------------------------------------
     if register_dashboard:
+        dashboard_path = config_dir / DASHBOARDS_OUTPUT_DIR / DASHBOARD_OUTPUT_NAME
         try:
-            await _async_register_dashboard(hass, url_path)
+            dashboard_yaml_text = await hass.async_add_executor_job(
+                dashboard_path.read_text, "utf-8"
+            )
+            await _async_register_dashboard(hass, url_path, dashboard_yaml_text)
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
                 "Plex Dashboard: could not auto-register dashboard (%s). "
