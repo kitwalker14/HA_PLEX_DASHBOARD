@@ -3,9 +3,15 @@
 ![Plex Dashboard banner](docs/banner.png)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Theme-41BDF5.svg)](https://github.com/hacs/integration)
+[![HACS Default PR](https://img.shields.io/badge/HACS%20default-pending-orange.svg)](https://github.com/hacs/default/pulls?q=is%3Apr+kitwalker14%2FHA_PLEX_DASHBOARD)
 ![Validate](https://github.com/kitwalker14/HA_PLEX_DASHBOARD/actions/workflows/validate.yml/badge.svg)
 ![Release](https://github.com/kitwalker14/HA_PLEX_DASHBOARD/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
+> **Status:** This repo is pending inclusion in the
+> [HACS default themes index](https://github.com/hacs/default/pulls?q=is%3Apr+kitwalker14%2FHA_PLEX_DASHBOARD).
+> Until merged, install via the **Custom repositories** flow below.
+> After merge, it will appear directly in the HACS Theme catalogue.
 
 A polished 4-column **Plex dashboard** for Home Assistant with rich
 now-playing metadata, automatic per-client cards, server stats, recently
@@ -46,14 +52,20 @@ Both updates flow through the same repo + release tags.
 
 ### Step 1 — Install the theme via HACS
 
+#### Option A — One-click (My Home Assistant)
+
+[![Open your Home Assistant instance and open the repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kitwalker14&repository=HA_PLEX_DASHBOARD&category=theme)
+
+#### Option B — Manual (until HACS default index merges this repo)
+
 1. **HACS → ⋮ menu → Custom repositories**
 2. Repository: `https://github.com/kitwalker14/HA_PLEX_DASHBOARD`
 3. Type: **Theme**
 4. Click **Add**, then find **"Plex Dashboard"** in HACS Themes → **Download**
 
-(Once this repo is added to the HACS default themes index, the custom-repo
-step won't be needed — users will find it directly in the HACS Theme
-catalogue.)
+> Once the [hacs/default PR](https://github.com/hacs/default/pulls?q=is%3Apr+kitwalker14%2FHA_PLEX_DASHBOARD)
+> is merged, neither step above is needed — the theme will be discoverable
+> directly in the HACS Theme catalogue.
 
 ### Step 2 — Install the dashboard files
 
