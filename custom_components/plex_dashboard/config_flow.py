@@ -19,6 +19,7 @@ from .const import (
     CONF_INSTALL_THEME,
     CONF_PLEX_SLUG,
     CONF_REGISTER_DASHBOARD,
+    CONF_RESET_DASHBOARD,
     DEFAULT_DASHBOARD_URL_PATH,
     DOMAIN,
 )
@@ -168,6 +169,9 @@ class PlexDashboardOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_CREATE_HELPERS,
                     default=current.get(CONF_CREATE_HELPERS, True),
+                ): bool,
+                vol.Optional(
+                    CONF_RESET_DASHBOARD, default=False
                 ): bool,
             }
         )

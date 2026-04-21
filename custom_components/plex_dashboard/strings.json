@@ -32,7 +32,8 @@
           "install_theme": "Re-install Plex Dark theme",
           "install_package": "Re-install package",
           "register_dashboard": "Re-register Lovelace dashboard",
-          "create_helpers": "Re-create helpers"
+          "create_helpers": "Re-create helpers",
+          "reset_dashboard": "Reset dashboard to bundled version (overwrites edits)"
         }
       }
     }

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-04-21
+
+### Added
+- **Smart dashboard upgrade**: the integration now records a SHA-256 hash
+  of the dashboard config it last wrote into Lovelace storage. On the next
+  setup it compares this hash to the current storage payload:
+  - If they match (user hasn't edited the dashboard) the new bundled YAML
+    is written automatically, so dashboard fixes ship with each release.
+  - If they differ (user has edited) the dashboard is left in place and a
+    log message explains how to opt back in.
+- **`Reset dashboard to bundled version` option** (Settings → Devices &
+  Services → Plex Dashboard → Configure). When ticked, the next reload
+  force-overwrites the Lovelace storage payload with the bundled YAML and
+  then auto-clears the toggle.
+
+### Notes
+- Existing v2.0.x / v2.1.0 / v2.1.1 installs have no recorded hash, so the
+  dashboard appears as "edited" to the new logic. Use the new "Reset
+  dashboard" toggle once to pick up the v2.1.1 fixes (broken gauge, broken
+  Now Playing cards, graceful empty states), after which subsequent
+  upgrades flow through automatically.
+
 ## [2.1.1] - 2026-04-21
 
 ### Fixed

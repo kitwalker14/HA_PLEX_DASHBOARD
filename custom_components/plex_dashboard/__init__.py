@@ -1,6 +1,8 @@
 """Plex Dashboard integration: zero-touch installer for HA Plex dashboard."""
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -30,10 +32,12 @@ from .const import (
     CONF_INSTALL_THEME,
     CONF_PLEX_SLUG,
     CONF_REGISTER_DASHBOARD,
+    CONF_RESET_DASHBOARD,
     DASHBOARD_FILENAME,
     DASHBOARD_OUTPUT_NAME,
     DASHBOARDS_OUTPUT_DIR,
     DATA_DIR,
+    DATA_INSTALLED_DASHBOARD_HASH,
     DEFAULT_DASHBOARD_ICON,
     DEFAULT_DASHBOARD_TITLE,
     DEFAULT_DASHBOARD_URL_PATH,
@@ -86,6 +90,18 @@ def _copy_with_substitution(
     for token, value in substitutions.items():
         text = text.replace(token, value)
     return _write_file(dest, text)
+
+
+def _hash_dashboard(config: dict | None) -> str:
+    """Return a deterministic sha256 of a dashboard config dict.
+
+    Uses canonical JSON (sorted keys, no whitespace) so cosmetic YAML/storage
+    differences (key order, whitespace, anchors) don't affect the hash.
+    """
+    if not config:
+        return ""
+    payload = json.dumps(config, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -154,7 +170,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             dashboard_yaml_text = await hass.async_add_executor_job(
                 dashboard_path.read_text, "utf-8"
             )
-            await _async_register_dashboard(hass, url_path, dashboard_yaml_text)
+            await _async_register_dashboard(
+                hass, entry, url_path, dashboard_yaml_text
+            )
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
                 "Plex Dashboard: could not auto-register dashboard (%s). "
@@ -196,13 +214,22 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 # Lovelace dashboard registration (storage mode, fully runtime)
 # ---------------------------------------------------------------------------
 async def _async_register_dashboard(
-    hass: HomeAssistant, url_path: str, dashboard_yaml_text: str
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    url_path: str,
+    dashboard_yaml_text: str,
 ) -> None:
     """Create or update a storage-mode Lovelace dashboard from YAML text.
 
-    The HA dashboards collection only accepts mode=storage at create time, so
-    we parse the YAML ourselves and write it as the storage backend's config.
-    This means it appears in Settings -> Dashboards and is editable in the UI.
+    Behaviour on existing dashboards:
+
+    * If the storage payload's hash matches the hash we recorded after our
+      last write (stored in ``entry.data[DATA_INSTALLED_DASHBOARD_HASH]``),
+      the user has not edited it -> we safely overwrite it with the new
+      bundled YAML on integration upgrades.
+    * If the user has set ``CONF_RESET_DASHBOARD`` in the options flow we
+      force an overwrite regardless and then auto-clear the flag.
+    * Otherwise we leave the dashboard alone to preserve user edits.
     """
     lovelace_data = hass.data.get(LOVELACE_DATA)
     if lovelace_data is None:
@@ -219,20 +246,16 @@ async def _async_register_dashboard(
         _LOGGER.error("Plex Dashboard: bundled dashboard YAML is invalid: %s", err)
         return
 
-    # Find the DashboardsCollection. It's not stored on LovelaceData directly,
-    # but we can reach it via the websocket handler that lovelace registered.
-    # Easiest: search hass.data for the storage key.
+    new_hash = _hash_dashboard(dashboard_config)
+
+    # Find / construct the dashboards collection. It shares the same on-disk
+    # storage as the singleton lovelace created at startup, so loading a fresh
+    # instance is safe.
     from homeassistant.components.lovelace.dashboard import (
         DashboardsCollection,
         LovelaceStorage,
     )
 
-    # Locate the existing collection by walking lovelace internals
-    dashboards_collection: DashboardsCollection | None = None
-    # The collection is created in lovelace.async_setup and not stashed in
-    # hass.data publicly, but DashboardsCollection is a singleton-style
-    # storage collection; we can reconstruct a reference by creating one and
-    # loading it (it shares the same underlying storage file).
     dashboards_collection = DashboardsCollection(hass)
     await dashboards_collection.async_load()
 
@@ -265,23 +288,53 @@ async def _async_register_dashboard(
             )
             return
 
-    # Now write the dashboard's lovelace storage payload
     storage = LovelaceStorage(hass, existing)
     try:
         existing_config = await storage.async_load(force=True)
     except Exception:  # noqa: BLE001
         existing_config = None
 
-    if existing_config:
-        # Don't trample user edits; only write if the dashboard is empty.
-        _LOGGER.info(
-            "Plex Dashboard: dashboard %s already has content, leaving in place",
-            url_path,
-        )
-        return
+    force_reset = bool(entry.options.get(CONF_RESET_DASHBOARD, False))
+    last_hash = entry.data.get(DATA_INSTALLED_DASHBOARD_HASH, "")
+    existing_hash = _hash_dashboard(existing_config) if existing_config else ""
+
+    if existing_config and not force_reset:
+        if last_hash and existing_hash == last_hash:
+            _LOGGER.info(
+                "Plex Dashboard: dashboard %s is unedited (hash matches "
+                "last installed) -- updating to new bundled version",
+                url_path,
+            )
+        else:
+            _LOGGER.info(
+                "Plex Dashboard: dashboard %s appears to have user edits "
+                "(stored hash %s, current hash %s); leaving in place. "
+                "Toggle 'Reset dashboard to bundled version' in the "
+                "integration options to force-overwrite.",
+                url_path,
+                last_hash[:8] or "<none>",
+                existing_hash[:8],
+            )
+            return
 
     await storage.async_save(dashboard_config)
-    _LOGGER.info("Plex Dashboard: registered storage dashboard '%s'", url_path)
+    _LOGGER.info(
+        "Plex Dashboard: %s storage dashboard '%s'",
+        "force-reset" if force_reset else ("updated" if existing_config else "registered"),
+        url_path,
+    )
+
+    # Persist the new hash so we can detect user edits next upgrade.
+    new_data = {**entry.data, DATA_INSTALLED_DASHBOARD_HASH: new_hash}
+
+    # Clear the one-shot reset flag if it was set.
+    if force_reset:
+        new_options = {k: v for k, v in entry.options.items() if k != CONF_RESET_DASHBOARD}
+        hass.config_entries.async_update_entry(
+            entry, data=new_data, options=new_options
+        )
+    else:
+        hass.config_entries.async_update_entry(entry, data=new_data)
 
 
 # ---------------------------------------------------------------------------

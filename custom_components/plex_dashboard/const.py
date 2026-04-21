@@ -10,6 +10,15 @@ CONF_INSTALL_THEME = "install_theme"
 CONF_INSTALL_PACKAGE = "install_package"
 CONF_REGISTER_DASHBOARD = "register_dashboard"
 CONF_CREATE_HELPERS = "create_helpers"
+# Options-flow toggle: when True on next reload, force-overwrite the
+# Lovelace storage payload with the bundled YAML, ignoring the
+# "user may have edited it" safety check. Auto-clears after one run.
+CONF_RESET_DASHBOARD = "reset_dashboard"
+
+# Internal entry.data key: sha256 of the dashboard dict we last wrote into
+# Lovelace storage. Used to detect whether the user has edited the dashboard
+# since our last install; if not, we may safely overwrite it on upgrade.
+DATA_INSTALLED_DASHBOARD_HASH = "installed_dashboard_hash"
 
 DEFAULT_DASHBOARD_URL_PATH = "plex-dashboard"
 DEFAULT_DASHBOARD_TITLE = "Plex"
