@@ -1,0 +1,136 @@
+# =============================================================================
+#  PLEX DASHBOARD PACKAGE
+#  Drop into:  /config/packages/plex_dashboard.yaml
+#  Make sure configuration.yaml has:
+#     homeassistant:
+#       packages: !include_dir_named packages
+# =============================================================================
+#
+#  Provides template sensors that aggregate Plex media_player + Tautulli + Plex
+#  Recently Added data into a single, dashboard-friendly shape.
+#
+#  ---- PLACEHOLDERS TO FIND/REPLACE ----
+#    PLEX_SERVER_NAME   -> the slug of your Plex server (e.g. "myplex")
+#                          As shown in entity_ids like:
+#                          sensor.plex_PLEX_SERVER_NAME
+#                          sensor.plex_library_PLEX_SERVER_NAME_movies
+#  --------------------------------------
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# INPUTS – dashboard controls
+# -----------------------------------------------------------------------------
+input_boolean:
+  plex_show_paused:
+    name: Show paused streams
+    icon: mdi:pause-circle-outline
+  plex_show_offline_clients:
+    name: Show idle clients
+    icon: mdi:monitor-off
+
+input_select:
+  plex_recently_added_filter:
+    name: Recently Added Filter
+    options:
+      - All
+      - Movies
+      - TV
+      - Music
+    initial: All
+    icon: mdi:filter-variant
+
+# -----------------------------------------------------------------------------
+# TEMPLATE SENSORS
+# -----------------------------------------------------------------------------
+template:
+  - sensor:
+      # ---------- Active Plex stream count ----------
+      - name: "Plex Active Streams"
+        unique_id: plex_active_streams
+        icon: mdi:play-network
+        unit_of_measurement: "streams"
+        state: >-
+          {{ states.media_player
+             | selectattr('entity_id','match','^media_player\\.plex_')
+             | selectattr('state','in',['playing','paused','buffering'])
+             | list | count }}
+        attributes:
+          playing: >-
+            {{ states.media_player
+               | selectattr('entity_id','match','^media_player\\.plex_')
+               | selectattr('state','eq','playing')
+               | list | count }}
+          paused: >-
+            {{ states.media_player
+               | selectattr('entity_id','match','^media_player\\.plex_')
+               | selectattr('state','eq','paused')
+               | list | count }}
+          buffering: >-
+            {{ states.media_player
+               | selectattr('entity_id','match','^media_player\\.plex_')
+               | selectattr('state','eq','buffering')
+               | list | count }}
+
+      # ---------- Active client list (entity_ids) ----------
+      - name: "Plex Active Client IDs"
+        unique_id: plex_active_client_ids
+        icon: mdi:account-multiple
+        state: >-
+          {{ states.media_player
+             | selectattr('entity_id','match','^media_player\\.plex_')
+             | selectattr('state','in',['playing','paused','buffering'])
+             | map(attribute='entity_id') | list | count }}
+        attributes:
+          entities: >-
+            {{ states.media_player
+               | selectattr('entity_id','match','^media_player\\.plex_')
+               | selectattr('state','in',['playing','paused','buffering'])
+               | map(attribute='entity_id') | list }}
+
+      # ---------- Total bandwidth (from Tautulli, optional) ----------
+      - name: "Plex Total Bandwidth Mbps"
+        unique_id: plex_total_bandwidth_mbps
+        icon: mdi:speedometer
+        unit_of_measurement: "Mbps"
+        state: >-
+          {% set tautulli = states('sensor.tautulli_bandwidth_total') %}
+          {% if tautulli not in ['unknown','unavailable','none', None] %}
+            {{ (tautulli | float(0) / 1000) | round(1) }}
+          {% else %}
+            0
+          {% endif %}
+
+      # ---------- Plex server up/down ----------
+      - name: "Plex Server Online"
+        unique_id: plex_server_online
+        icon: mdi:plex
+        state: >-
+          {% set s = states('sensor.plex_PLEX_SERVER_NAME') %}
+          {{ 'on' if s not in ['unavailable','unknown','none', None] else 'off' }}
+
+  # -------- Per-stream binary sensor (handy for automations) --------
+  - binary_sensor:
+      - name: "Plex Anything Playing"
+        unique_id: plex_anything_playing
+        icon: mdi:play-circle
+        state: >-
+          {{ states('sensor.plex_active_streams') | int(0) > 0 }}
+
+# -----------------------------------------------------------------------------
+# SCRIPTS – dashboard buttons
+# -----------------------------------------------------------------------------
+script:
+  plex_scan_all_libraries:
+    alias: "Plex: Scan All Libraries"
+    icon: mdi:database-refresh
+    sequence:
+      - service: plex.scan_for_clients
+
+  plex_pause_all:
+    alias: "Plex: Pause All Streams"
+    icon: mdi:pause
+    sequence:
+      - service: media_player.media_pause
+        target:
+          entity_id: >-
+            {{ state_attr('sensor.plex_active_client_ids','entities') }}

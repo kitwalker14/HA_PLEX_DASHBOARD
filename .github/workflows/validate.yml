@@ -1,0 +1,53 @@
+name: Validate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  hacs:
+    name: HACS validation (theme)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: theme
+
+  yaml-lint:
+    name: YAML lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: themes/ extras/
+          config_data: |
+            extends: default
+            rules:
+              line-length: disable
+              document-start: disable
+              truthy:
+                check-keys: false
+              indentation:
+                spaces: 2
+                indent-sequences: consistent
+              comments:
+                min-spaces-from-content: 1
+              comments-indentation: disable
+              braces:
+                max-spaces-inside: 1
+              brackets:
+                max-spaces-inside: 1
+
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: ./scripts

@@ -1,0 +1,22 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# HA local test
+config/
+secrets.yaml
+home-assistant_v2.db*
+home-assistant.log*
+
+# Build / release
+dist/
+*.zip
