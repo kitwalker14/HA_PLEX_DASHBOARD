@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.5] - 2026-04-21
+
+### Changed
+- **Helpers are now defined in the package YAML** instead of being
+  created programmatically at integration setup. Home Assistant core
+  does not expose the `input_boolean` / `input_select` storage
+  collections via `hass.data`, so programmatic creation was unreliable
+  and could silently fail. The helpers now appear under
+  Settings -> Devices & services -> Helpers as read-only YAML entries
+  (reload-safe, never silently disappear).
+- **Helpers renamed** to avoid colliding with any helpers a previous
+  version may have created in `.storage`:
+  - `input_boolean.plex_show_paused` ->
+    `input_boolean.plex_dashboard_show_paused`
+  - `input_boolean.plex_show_offline_clients` ->
+    `input_boolean.plex_dashboard_show_offline_clients`
+  - `input_select.plex_recently_added_filter` ->
+    `input_select.plex_dashboard_recently_added_filter`
+  If you have the old helpers from a prior version they will simply
+  remain as orphaned entities -- delete them from
+  Settings -> Devices & services -> Helpers if desired.
+- **Now Playing card config simplified** to the bare minimum
+  (`type`, `entity`, `artwork: cover`). Some `mini-media-player`
+  sub-keys (`hide:`, `info: scroll`, `icon:`) appear to misbehave
+  when passed through auto-entities' `this.entity_id` substitution.
+
 ## [2.1.4] - 2026-04-21
 
 ### Fixed

@@ -180,9 +180,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 err,
             )
 
-    # ---- Create helpers ----------------------------------------------------
-    if create_helpers:
-        await _async_create_helpers(hass)
+    # ---- Helpers --------------------------------------------------------
+    # Helpers (input_boolean.plex_dashboard_show_paused,
+    # input_select.plex_dashboard_recently_added_filter, etc.) are now bundled
+    # directly into plex_dashboard_package.yaml as YAML helpers. They appear
+    # under Settings -> Helpers as read-only YAML entries. The
+    # CONF_CREATE_HELPERS flag is kept for backwards compatibility with
+    # existing config entries but no longer triggers any work here.
+    _ = create_helpers  # silence unused var; flag retained in entry data
 
     # ---- Surface missing frontend cards as Repairs -------------------------
     await _async_check_frontend_cards(hass)
@@ -335,88 +340,6 @@ async def _async_register_dashboard(
         )
     else:
         hass.config_entries.async_update_entry(entry, data=new_data)
-
-
-# ---------------------------------------------------------------------------
-# Helper creation via the input_boolean / input_select services
-# ---------------------------------------------------------------------------
-async def _async_create_helpers(hass: HomeAssistant) -> None:
-    """Create input_boolean/input_select helpers if missing.
-
-    We use the runtime services rather than the storage collection directly so
-    the helpers are reload-safe and visible under Settings -> Helpers.
-
-    The input_boolean / input_select integrations are loaded lazily by HA --
-    if the user has never created a helper of that type, the component (and
-    its storage-backed collection) won't be in hass.data yet, and our calls
-    silently no-op. We force-load both via async_setup_component first.
-    """
-    from homeassistant.components.input_boolean import (
-        DOMAIN as IB_DOMAIN,
-    )
-    from homeassistant.components.input_select import (
-        DOMAIN as IS_DOMAIN,
-    )
-    from homeassistant.setup import async_setup_component
-
-    # Ensure both helper integrations are loaded so their storage collections
-    # exist in hass.data before we try to add items.
-    for helper_domain in (IB_DOMAIN, IS_DOMAIN):
-        if helper_domain not in hass.config.components:
-            try:
-                await async_setup_component(hass, helper_domain, {})
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.warning(
-                    "Plex Dashboard: could not load %s helper integration: %s",
-                    helper_domain,
-                    err,
-                )
-
-    # input_boolean
-    ib_component = hass.data.get(IB_DOMAIN)
-    if ib_component is not None:
-        for object_id, cfg in HELPERS_INPUT_BOOLEAN.items():
-            entity_id = f"{IB_DOMAIN}.{object_id}"
-            if hass.states.get(entity_id) is not None:
-                continue
-            try:
-                await ib_component.async_create_item(
-                    {"id": object_id, "name": cfg["name"], "icon": cfg.get("icon")}
-                )
-                _LOGGER.info("Plex Dashboard: created helper %s", entity_id)
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.warning("Plex Dashboard: could not create %s: %s", entity_id, err)
-    else:
-        _LOGGER.warning(
-            "Plex Dashboard: input_boolean component unavailable; "
-            "skipped creating boolean helpers"
-        )
-
-    # input_select
-    is_component = hass.data.get(IS_DOMAIN)
-    if is_component is not None:
-        for object_id, cfg in HELPERS_INPUT_SELECT.items():
-            entity_id = f"{IS_DOMAIN}.{object_id}"
-            if hass.states.get(entity_id) is not None:
-                continue
-            try:
-                await is_component.async_create_item(
-                    {
-                        "id": object_id,
-                        "name": cfg["name"],
-                        "icon": cfg.get("icon"),
-                        "options": cfg["options"],
-                        "initial": cfg.get("initial"),
-                    }
-                )
-                _LOGGER.info("Plex Dashboard: created helper %s", entity_id)
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.warning("Plex Dashboard: could not create %s: %s", entity_id, err)
-    else:
-        _LOGGER.warning(
-            "Plex Dashboard: input_select component unavailable; "
-            "skipped creating select helpers"
-        )
 
 
 # ---------------------------------------------------------------------------

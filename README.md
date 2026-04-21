@@ -87,9 +87,9 @@ The integration will copy:
 - `plex_dashboard_package.yaml` → `/config/packages/`
 - `plex_dashboard_dashboard.yaml` → `/config/dashboards/`
 
-…create the helpers (`input_boolean.plex_show_paused`,
-`input_boolean.plex_show_offline_clients`,
-`input_select.plex_recently_added_filter`), and register the
+…create the helpers (`input_boolean.plex_dashboard_show_paused`,
+`input_boolean.plex_dashboard_show_offline_clients`,
+`input_select.plex_dashboard_recently_added_filter`), and register the
 **Plex Dashboard** entry in the Lovelace sidebar.
 
 After the second restart, your new dashboard is in the sidebar — done.

@@ -66,20 +66,23 @@ HACS_DEEP_LINK = (
     "?owner={owner}&repository={repo}&category=plugin"
 )
 
-# Helpers we create on setup
+# Helpers (defined as YAML in plex_dashboard_package.yaml since 2.1.5).
+# These dicts are kept for reference / Repairs diagnostics only -- the
+# integration no longer creates helpers programmatically (HA core does not
+# expose input_boolean / input_select storage collections via hass.data).
 HELPERS_INPUT_BOOLEAN: dict[str, dict[str, str]] = {
-    "plex_show_paused": {
+    "plex_dashboard_show_paused": {
         "name": "Show paused streams",
         "icon": "mdi:pause-circle-outline",
     },
-    "plex_show_offline_clients": {
+    "plex_dashboard_show_offline_clients": {
         "name": "Show idle clients",
         "icon": "mdi:monitor-off",
     },
 }
 
 HELPERS_INPUT_SELECT: dict[str, dict] = {
-    "plex_recently_added_filter": {
+    "plex_dashboard_recently_added_filter": {
         "name": "Recently added filter",
         "icon": "mdi:filter-variant",
         "options": ["All", "Movies", "TV", "Music"],

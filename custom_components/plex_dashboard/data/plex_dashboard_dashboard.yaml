@@ -169,14 +169,19 @@ views:
                 _All Plex clients are idle_
 
           # Auto-entities: one rich mini-media-player per active stream.
-          # mini-media-player handles artwork, title, progress, and controls,
-          # so we don't need a separate metadata block.
+          # mini-media-player handles artwork, title, progress, and controls.
           #
           # NOTE: per auto-entities docs, the `options:` block (which receives
           # the `this.entity_id` substitution) MUST live inside each
           # `filter.include[]` entry, not at the top level of auto-entities --
           # a top-level `options:` is silently ignored, which is what made
           # earlier versions emit broken cards with no `type:`.
+          #
+          # We keep the mini-media-player config minimal -- many of its
+          # options (hide.power, hide.volume, info: scroll, etc.) trigger
+          # "Configuration error" on certain mini-media-player versions when
+          # passed through auto-entities' substitution. The defaults already
+          # produce a clean card.
           - type: custom:auto-entities
             show_empty: false
             card:
@@ -189,37 +194,19 @@ views:
                   options:
                     type: custom:mini-media-player
                     entity: this.entity_id
-                    artwork: full-cover-fanart
-                    info: scroll
-                    icon: mdi:plex
-                    hide:
-                      power: true
-                      volume: true
-                      runtime: true
+                    artwork: cover
                 - entity_id: media_player.plex_*
                   state: paused
                   options:
                     type: custom:mini-media-player
                     entity: this.entity_id
-                    artwork: full-cover-fanart
-                    info: scroll
-                    icon: mdi:plex
-                    hide:
-                      power: true
-                      volume: true
-                      runtime: true
+                    artwork: cover
                 - entity_id: media_player.plex_*
                   state: buffering
                   options:
                     type: custom:mini-media-player
                     entity: this.entity_id
-                    artwork: full-cover-fanart
-                    info: scroll
-                    icon: mdi:plex
-                    hide:
-                      power: true
-                      volume: true
-                      runtime: true
+                    artwork: cover
               exclude:
                 - state: "unavailable"
                 - state: "unknown"
@@ -268,11 +255,11 @@ views:
             conditions:
               - condition: template
                 value_template: >-
-                  {{ states.input_select.plex_recently_added_filter is not none }}
+                  {{ states.input_select.plex_dashboard_recently_added_filter is not none }}
             card:
               type: entities
               entities:
-                - entity: input_select.plex_recently_added_filter
+                - entity: input_select.plex_dashboard_recently_added_filter
                   name: Show
 
           # Movies recently added.
@@ -287,7 +274,7 @@ views:
               - condition: template
                 value_template: >-
                   {% set s = states.sensor.plex_recently_added_movies %}
-                  {% set f = states('input_select.plex_recently_added_filter') %}
+                  {% set f = states('input_select.plex_dashboard_recently_added_filter') %}
                   {{ s is not none
                      and s.attributes.data is defined
                      and (s.attributes.data | count) > 0
@@ -306,7 +293,7 @@ views:
               - condition: template
                 value_template: >-
                   {% set s = states.sensor.plex_recently_added_tv %}
-                  {% set f = states('input_select.plex_recently_added_filter') %}
+                  {% set f = states('input_select.plex_dashboard_recently_added_filter') %}
                   {{ s is not none
                      and s.attributes.data is defined
                      and (s.attributes.data | count) > 0
@@ -325,7 +312,7 @@ views:
               - condition: template
                 value_template: >-
                   {% set s = states.sensor.plex_recently_added_music %}
-                  {% set f = states('input_select.plex_recently_added_filter') %}
+                  {% set f = states('input_select.plex_dashboard_recently_added_filter') %}
                   {{ s is not none
                      and s.attributes.data is defined
                      and (s.attributes.data | count) > 0
@@ -412,6 +399,6 @@ views:
             icon: mdi:cog
           - type: entities
             entities:
-              - entity: input_boolean.plex_show_paused
-              - entity: input_boolean.plex_show_offline_clients
-              - entity: input_select.plex_recently_added_filter
+              - entity: input_boolean.plex_dashboard_show_paused
+              - entity: input_boolean.plex_dashboard_show_offline_clients
+              - entity: input_select.plex_dashboard_recently_added_filter

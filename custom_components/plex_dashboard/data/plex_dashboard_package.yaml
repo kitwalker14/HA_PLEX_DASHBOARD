@@ -7,10 +7,33 @@
 #  The PLEX_SERVER_NAME placeholder is auto-substituted on install with the
 #  slug supplied during config flow.
 #
-#  Helpers (input_boolean / input_select) are NOT defined here -- they are
-#  created via the helper registry by the integration so they show up under
-#  Settings -> Devices & services -> Helpers and survive package reloads.
+#  Helpers (input_boolean / input_select) are defined here as YAML helpers.
+#  They appear under Settings -> Devices & services -> Helpers as read-only
+#  YAML entries (cannot be edited from the UI, but reload-safe and never
+#  silently disappear).
 # =============================================================================
+
+# -----------------------------------------------------------------------------
+# HELPERS (YAML-defined, read-only in UI but reload-safe)
+# -----------------------------------------------------------------------------
+input_boolean:
+  plex_dashboard_show_paused:
+    name: Show paused streams
+    icon: mdi:pause-circle-outline
+  plex_dashboard_show_offline_clients:
+    name: Show idle clients
+    icon: mdi:monitor-off
+
+input_select:
+  plex_dashboard_recently_added_filter:
+    name: Recently added filter
+    icon: mdi:filter-variant
+    options:
+      - All
+      - Movies
+      - TV
+      - Music
+    initial: All
 
 # -----------------------------------------------------------------------------
 # TEMPLATE SENSORS
