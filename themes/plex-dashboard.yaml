@@ -10,7 +10,7 @@
 Plex Dark:
   # base
   primary-color: "#e5a00d"          # Plex amber
-  accent-color:  "#e5a00d"
+  accent-color: "#e5a00d"
   app-header-background-color: "#1f1f1f"
   app-header-text-color: "#e5a00d"
 
@@ -36,4 +36,4 @@ Plex Dark:
 
   # mushroom
   mush-rgb-orange: "229, 160, 13"
-  mush-rgb-amber:  "229, 160, 13"
+  mush-rgb-amber: "229, 160, 13"
