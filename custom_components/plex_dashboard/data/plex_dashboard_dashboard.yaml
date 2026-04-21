@@ -12,15 +12,13 @@
 #           show_in_sidebar: true
 #           filename: dashboards/plex_dashboard.yaml
 #
-#  ---- HACS REQUIREMENTS ----
-#    - mushroom               (frontend cards)
+#  ---- HACS REQUIREMENTS (frontend) ----
+#    - auto-entities          (custom:auto-entities)
 #    - button-card            (custom:button-card)
 #    - mini-media-player      (custom:mini-media-player)
-#    - bar-card               (custom:bar-card)
-#    - auto-entities          (custom:auto-entities)
-#    - card-mod               (styling)
 #    - upcoming-media-card    (recently added / sonarr / radarr)
-#    - layout-card (optional, only if you want even more layout control)
+#  Built-in cards (gauge, tile, markdown, entities) replace the previous
+#  mushroom + bar-card dependencies, so HACS no longer needs them.
 #
 #  ---- PLACEHOLDERS ----
 #    PLEX_SERVER_NAME    -> server slug (sensor.plex_<slug>)
@@ -51,90 +49,67 @@ views:
             heading_style: title
             icon: mdi:plex
 
-          - type: custom:mushroom-template-card
-            primary: Plex Media Server
-            secondary: >-
-              {{ 'Online' if is_state('sensor.plex_server_online','on') else 'Offline' }}
-              · {{ states('sensor.plex_active_streams') }} stream(s)
+          - type: tile
+            entity: sensor.plex_server_online
+            name: Plex Media Server
             icon: mdi:plex
-            icon_color: >-
-              {{ 'orange' if is_state('sensor.plex_server_online','on') else 'red' }}
-            badge_icon: >-
-              {{ 'mdi:check-circle' if is_state('sensor.plex_server_online','on') else 'mdi:alert' }}
-            badge_color: >-
-              {{ 'green' if is_state('sensor.plex_server_online','on') else 'red' }}
+            color: orange
             tap_action:
               action: url
               url_path: https://app.plex.tv/desktop
 
-          # ---------- Quick chip row ----------
-          - type: custom:mushroom-chips-card
-            alignment: center
-            chips:
-              - type: template
-                icon: mdi:play
-                content: "{{ state_attr('sensor.plex_active_streams','playing') or 0 }}"
-                icon_color: green
-              - type: template
-                icon: mdi:pause
-                content: "{{ state_attr('sensor.plex_active_streams','paused') or 0 }}"
-                icon_color: amber
-              - type: template
-                icon: mdi:loading
-                content: "{{ state_attr('sensor.plex_active_streams','buffering') or 0 }}"
-                icon_color: blue
-              - type: template
-                icon: mdi:speedometer
-                content: "{{ states('sensor.plex_total_bandwidth_mbps') }} Mbps"
-                icon_color: purple
+          # ---------- Quick stats row (built-in markdown) ----------
+          - type: markdown
+            content: >-
+              <ha-icon icon="mdi:play" style="color:#4caf50"></ha-icon>
+              **{{ state_attr('sensor.plex_active_streams','playing') or 0 }}**
+              &nbsp;&nbsp;
+              <ha-icon icon="mdi:pause" style="color:#ff9800"></ha-icon>
+              **{{ state_attr('sensor.plex_active_streams','paused') or 0 }}**
+              &nbsp;&nbsp;
+              <ha-icon icon="mdi:loading" style="color:#2196f3"></ha-icon>
+              **{{ state_attr('sensor.plex_active_streams','buffering') or 0 }}**
+              &nbsp;&nbsp;
+              <ha-icon icon="mdi:speedometer" style="color:#9c27b0"></ha-icon>
+              **{{ states('sensor.plex_total_bandwidth_mbps') }} Mbps**
 
-          # ---------- Bandwidth bar ----------
-          - type: custom:bar-card
-            entities:
-              - entity: sensor.plex_total_bandwidth_mbps
-                name: Bandwidth
-            positions:
-              icon: 'off'
-              indicator: 'off'
-              name: inside
-              value: inside
+          # ---------- Bandwidth gauge (built-in) ----------
+          - type: gauge
+            entity: sensor.plex_total_bandwidth_mbps
+            name: Bandwidth
+            unit: Mbps
             min: 0
             max: 200
+            needle: true
             severity:
-              - color: '#4caf50'
-                from: 0
-                to: 50
-              - color: '#ff9800'
-                from: 50
-                to: 120
-              - color: '#f44336'
-                from: 120
-                to: 200
+              green: 0
+              yellow: 50
+              red: 120
 
           # ---------- Server actions ----------
           - type: horizontal-stack
             cards:
-              - type: custom:mushroom-template-card
-                primary: Scan
-                secondary: Libraries
+              - type: tile
+                entity: script.plex_scan_all_libraries
+                name: Scan
                 icon: mdi:database-refresh
-                icon_color: blue
+                color: blue
                 tap_action:
                   action: call-service
                   service: script.plex_scan_all_libraries
-              - type: custom:mushroom-template-card
-                primary: Pause
-                secondary: All streams
+              - type: tile
+                entity: script.plex_pause_all
+                name: Pause All
                 icon: mdi:pause-octagon
-                icon_color: amber
+                color: amber
                 tap_action:
                   action: call-service
                   service: script.plex_pause_all
-              - type: custom:mushroom-template-card
-                primary: Open
-                secondary: web app
+              - type: tile
+                entity: sensor.plex_server_online
+                name: Open Web
                 icon: mdi:open-in-new
-                icon_color: orange
+                color: orange
                 tap_action:
                   action: url
                   url_path: https://app.plex.tv/desktop
@@ -177,11 +152,10 @@ views:
                 entity: binary_sensor.plex_anything_playing
                 state: "off"
             card:
-              type: custom:mushroom-template-card
-              primary: Nothing is playing
-              secondary: All Plex clients are idle
-              icon: mdi:sleep
-              icon_color: grey
+              type: markdown
+              content: |
+                ### <ha-icon icon="mdi:sleep"></ha-icon> Nothing is playing
+                _All Plex clients are idle_
 
           # Auto-entities: one rich card per active stream
           - type: custom:auto-entities
@@ -330,37 +304,10 @@ views:
             card:
               type: entities
               state_color: true
+              title: ""
             filter:
               include:
                 - entity_id: media_player.plex_*
-                  options:
-                    type: custom:mushroom-template-card
-                    entity: this.entity_id
-                    primary: |
-                      {{ state_attr(entity,'friendly_name') | replace('Plex (','') | replace(')','') }}
-                    secondary: |
-                      {% set s = states(entity) %}
-                      {% if s in ['playing','paused','buffering'] %}
-                        {{ state_attr(entity,'media_title') or 'Streaming' }}
-                      {% else %}
-                        {{ s | title }}
-                      {% endif %}
-                    icon: |
-                      {% set s = states(entity) %}
-                      {% if s == 'playing' %}mdi:play
-                      {% elif s == 'paused' %}mdi:pause
-                      {% elif s == 'buffering' %}mdi:loading
-                      {% else %}mdi:monitor
-                      {% endif %}
-                    icon_color: |
-                      {% set s = states(entity) %}
-                      {% if s == 'playing' %}green
-                      {% elif s == 'paused' %}amber
-                      {% elif s == 'buffering' %}blue
-                      {% else %}grey
-                      {% endif %}
-                    tap_action:
-                      action: more-info
               exclude:
                 - state: "unavailable"
             sort:

@@ -38,16 +38,9 @@
     }
   },
   "issues": {
-    "missing_frontend_card": {
-      "title": "Plex Dashboard: missing frontend card {card}",
-      "fix_flow": {
-        "step": {
-          "confirm": {
-            "title": "Install {card}",
-            "description": "The Plex Dashboard requires the **{card}** frontend card.\n\nInstall it via HACS:\n\n1. Open HACS \u2192 Frontend\n2. Search for **{card}**\n3. Install and reload your browser\n\nRepository: `{repo}`"
-          }
-        }
-      }
+    "missing_frontend_cards": {
+      "title": "Plex Dashboard: {count} frontend card(s) missing",
+      "description": "The Plex Dashboard needs {count} HACS frontend card(s) that aren't installed yet. Click each link below to open it directly in HACS, then install and reload your browser:\n\n{cards}\n\nAfter installing, reload your browser. This Repair will clear automatically."
     },
     "packages_not_loaded": {
       "title": "Plex Dashboard: packages not enabled",

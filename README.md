@@ -44,15 +44,19 @@ dashboard-registration work for you.
 
 ### Frontend cards (HACS Frontend)
 
-Install these via **HACS → Frontend** before or after install — the
-integration will surface a Repair for any that are missing:
+Only **four** custom cards are required. Click each badge to open it
+directly in HACS (one-click install), then reload your browser. Any
+missing card will also be surfaced as a single Repair after install.
 
-- `mini-media-player`
-- `button-card`
-- `auto-entities`
-- `bar-card`
-- `upcoming-media-card`
-- `card-mod`
+| Card | One-click install |
+| --- | --- |
+| Auto-entities | [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=thomasloven&repository=lovelace-auto-entities&category=plugin) |
+| Button card | [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-cards&repository=button-card&category=plugin) |
+| Mini media player | [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kalkih&repository=mini-media-player&category=plugin) |
+| Upcoming media card | [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-cards&repository=upcoming-media-card&category=plugin) |
+
+> Built-in `gauge`, `tile`, `markdown`, and `entities` cards now replace
+> the previous `mushroom-*` and `bar-card` dependencies.
 
 ---
 

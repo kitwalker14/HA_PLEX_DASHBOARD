@@ -38,6 +38,7 @@ from .const import (
     DEFAULT_DASHBOARD_TITLE,
     DEFAULT_DASHBOARD_URL_PATH,
     DOMAIN,
+    HACS_DEEP_LINK,
     HELPERS_INPUT_BOOLEAN,
     HELPERS_INPUT_SELECT,
     PACKAGE_FILENAME,
@@ -361,27 +362,42 @@ async def _async_check_frontend_cards(hass: HomeAssistant) -> None:
 
     blob = " ".join(resource_urls)
 
+    missing: list[tuple[str, dict[str, str]]] = []
     for card_element, info in REQUIRED_FRONTEND_CARDS.items():
         # Heuristic substring: card name or repo name
         needle = card_element.replace("-card", "").split("-")[0]
         present = needle in blob or info["repo"].split("/")[-1].lower() in blob
-        issue_id = f"missing_card_{card_element}"
-        if present:
-            ir.async_delete_issue(hass, DOMAIN, issue_id)
-            continue
-        ir.async_create_issue(
-            hass,
-            DOMAIN,
-            issue_id,
-            is_fixable=False,
-            severity=ir.IssueSeverity.WARNING,
-            translation_key="missing_frontend_card",
-            translation_placeholders={
-                "card": info["name"],
-                "repo": info["repo"],
-            },
-            learn_more_url=f"https://github.com/{info['repo']}",
-        )
+        if not present:
+            missing.append((card_element, info))
+        # Clean up any per-card issues from previous versions
+        ir.async_delete_issue(hass, DOMAIN, f"missing_card_{card_element}")
+
+    consolidated_id = "missing_frontend_cards"
+    if not missing:
+        ir.async_delete_issue(hass, DOMAIN, consolidated_id)
+        return
+
+    # Build a markdown bullet list of one-click HACS install deep links
+    lines: list[str] = []
+    for _card, info in missing:
+        owner, repo = info["repo"].split("/", 1)
+        link = HACS_DEEP_LINK.format(owner=owner, repo=repo)
+        lines.append(f"- [{info['name']}]({link}) — `{info['repo']}`")
+    cards_md = "\n".join(lines)
+
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        consolidated_id,
+        is_fixable=False,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key="missing_frontend_cards",
+        translation_placeholders={
+            "count": str(len(missing)),
+            "cards": cards_md,
+        },
+        learn_more_url="https://hacs.xyz/docs/use/repositories/dashboard/",
+    )
 
 
 # ---------------------------------------------------------------------------

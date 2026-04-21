@@ -32,11 +32,14 @@ PACKAGE_OUTPUT_NAME = "plex_dashboard.yaml"
 
 PLACEHOLDER_SLUG = "PLEX_SERVER_NAME"
 
-# Required HACS frontend cards (custom: element name -> friendly name + repo)
+# Required HACS frontend cards (custom: element name -> friendly name + repo).
+# Kept intentionally small: anything that has a built-in equivalent (mushroom,
+# bar-card) has been replaced in the bundled dashboard YAML. These four have
+# no built-in alternative.
 REQUIRED_FRONTEND_CARDS: dict[str, dict[str, str]] = {
-    "mushroom-template-card": {
-        "name": "Mushroom",
-        "repo": "piitaya/lovelace-mushroom",
+    "auto-entities": {
+        "name": "Auto-entities",
+        "repo": "thomasloven/lovelace-auto-entities",
     },
     "button-card": {
         "name": "Button card",
@@ -46,19 +49,17 @@ REQUIRED_FRONTEND_CARDS: dict[str, dict[str, str]] = {
         "name": "Mini media player",
         "repo": "kalkih/mini-media-player",
     },
-    "bar-card": {
-        "name": "Bar card",
-        "repo": "custom-cards/bar-card",
-    },
-    "auto-entities": {
-        "name": "Auto-entities",
-        "repo": "thomasloven/lovelace-auto-entities",
-    },
     "upcoming-media-card": {
         "name": "Upcoming media card",
         "repo": "custom-cards/upcoming-media-card",
     },
 }
+
+# My Home Assistant deep-link template for one-click HACS install.
+HACS_DEEP_LINK = (
+    "https://my.home-assistant.io/redirect/hacs_repository/"
+    "?owner={owner}&repository={repo}&category=plugin"
+)
 
 # Helpers we create on setup
 HELPERS_INPUT_BOOLEAN: dict[str, dict[str, str]] = {

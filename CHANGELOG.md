@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-21
+
+### Changed
+- **Reduced required HACS frontend cards from 6 to 4.** Removed
+  dependencies on `mushroom-template-card`, `mushroom-chips-card`, and
+  `bar-card`. The bundled dashboard now uses built-in `gauge`, `tile`,
+  `markdown`, and `entities` cards instead.
+- Required cards are now: `auto-entities`, `button-card`,
+  `mini-media-player`, `upcoming-media-card`.
+
+### Added
+- README "Quick install" table with one-click My-Home-Assistant deep
+  links for each of the four remaining required cards.
+- Consolidated Repair: a single `missing_frontend_cards` issue lists
+  every missing card with a clickable HACS deep link, instead of one
+  Repair per card.
+
+### Removed
+- Per-card `missing_card_<element>` Repairs (cleaned up automatically
+  on first run after upgrade).
+
 ## [2.0.1] - 2026-04-21
 
 ### Fixed
