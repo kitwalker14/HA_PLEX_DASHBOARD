@@ -1,6 +1,6 @@
 # Plex Dashboard for Home Assistant
 
-![Plex Dashboard banner](docs/banner.svg)
+![Plex Dashboard banner](docs/banner.png)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Theme-41BDF5.svg)](https://github.com/hacs/integration)
 ![Validate](https://github.com/kitwalker14/HA_PLEX_DASHBOARD/actions/workflows/validate.yml/badge.svg)
