@@ -13,7 +13,6 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
-    CONF_CREATE_HELPERS,
     CONF_DASHBOARD_URL_PATH,
     CONF_INSTALL_PACKAGE,
     CONF_INSTALL_THEME,
@@ -140,9 +139,6 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_REGISTER_DASHBOARD: user_input.get(
                             CONF_REGISTER_DASHBOARD, True
                         ),
-                        CONF_CREATE_HELPERS: user_input.get(
-                            CONF_CREATE_HELPERS, True
-                        ),
                     },
                 )
 
@@ -188,7 +184,6 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_INSTALL_THEME, default=True): bool,
                 vol.Optional(CONF_INSTALL_PACKAGE, default=True): bool,
                 vol.Optional(CONF_REGISTER_DASHBOARD, default=True): bool,
-                vol.Optional(CONF_CREATE_HELPERS, default=True): bool,
             }
         )
 
@@ -257,10 +252,6 @@ class PlexDashboardOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_REGISTER_DASHBOARD,
                     default=current.get(CONF_REGISTER_DASHBOARD, True),
-                ): bool,
-                vol.Optional(
-                    CONF_CREATE_HELPERS,
-                    default=current.get(CONF_CREATE_HELPERS, True),
                 ): bool,
                 vol.Optional(
                     CONF_RESET_DASHBOARD, default=False

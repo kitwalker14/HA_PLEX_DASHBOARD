@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.5] - 2026-04-22
+
+### Changed
+- **Manifest dependencies trimmed** to just `lovelace`. Previous list
+  included `frontend`, `input_boolean`, `input_select`, and `repairs`,
+  which are not integration-level dependencies (the helpers are loaded
+  on demand from the bundled package YAML; `repairs` is a core helper,
+  not a domain). Reduces spurious "dependency not found" errors on
+  minimal HA configs.
+- **`create_helpers` toggle removed from the config & options flows.**
+  It has been a no-op since 2.1.5 (helpers ship as YAML in the package
+  file). The constant is retained in `const.py` so existing config
+  entries that still carry the key continue to load without migration.
+
+### Fixed
+- **Atomic file writes.** Theme/package/dashboard YAML files are now
+  written via `<file>.tmp` + `os.replace`, guaranteeing the target
+  is never left half-written if HA is killed mid-install (power loss,
+  OOM, container kill). Previously a truncated YAML could surface as
+  a hard-to-diagnose startup error.
+- **Defensive Lovelace internals import.** The integration uses
+  `homeassistant.components.lovelace.dashboard.{DashboardsCollection,
+  LovelaceStorage}` to register the dashboard in storage mode -- these
+  are private APIs that have moved before. The import is now wrapped
+  in `try/except ImportError`; if a future HA release refactors them,
+  setup no longer fails silently. Instead a new Repair issue
+  (`lovelace_internals_unavailable`) tells the user exactly how to
+  register the dashboard manually from the YAML file already on disk.
+- **Defensive `CONF_ALLOW_SINGLE_WORD` import.** Same rationale --
+  the constant is conditionally included in the dashboard create
+  payload only when present in the running HA version.
+
 ## [2.2.4] - 2026-04-22
 
 ### Added

@@ -4,13 +4,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from homeassistant.components.lovelace.const import (
-    CONF_ALLOW_SINGLE_WORD,
     CONF_ICON,
     CONF_REQUIRE_ADMIN,
     CONF_SHOW_IN_SIDEBAR,
@@ -19,14 +19,43 @@ from homeassistant.components.lovelace.const import (
     DOMAIN as LOVELACE_DOMAIN,
     LOVELACE_DATA,
 )
+
+# CONF_ALLOW_SINGLE_WORD has come and gone in HA's lovelace const module across
+# versions. Import defensively so an upgrade that drops the constant doesn't
+# break setup -- we only pass it when it exists.
+try:
+    from homeassistant.components.lovelace.const import (  # type: ignore[attr-defined]
+        CONF_ALLOW_SINGLE_WORD,
+    )
+    _HAS_ALLOW_SINGLE_WORD = True
+except ImportError:  # pragma: no cover - depends on HA version
+    CONF_ALLOW_SINGLE_WORD = "allow_single_word"
+    _HAS_ALLOW_SINGLE_WORD = False
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv, issue_registry as ir
 
+# Lovelace storage-mode internals. These are not part of HA's public API and
+# have moved/been renamed across versions. Import defensively so a future HA
+# release that refactors lovelace doesn't break integration setup -- instead
+# we surface a Repair issue and continue (the bundled YAML file on disk still
+# allows manual dashboard registration via the UI).
+try:
+    from homeassistant.components.lovelace.dashboard import (  # type: ignore[attr-defined]
+        DashboardsCollection,
+        LovelaceStorage,
+    )
+    _LOVELACE_INTERNALS_AVAILABLE = True
+    _LOVELACE_IMPORT_ERROR: str | None = None
+except ImportError as _err:  # pragma: no cover - depends on HA version
+    DashboardsCollection = None  # type: ignore[assignment,misc]
+    LovelaceStorage = None  # type: ignore[assignment,misc]
+    _LOVELACE_INTERNALS_AVAILABLE = False
+    _LOVELACE_IMPORT_ERROR = str(_err)
+
 from .const import (
-    CONF_CREATE_HELPERS,
     CONF_DASHBOARD_URL_PATH,
     CONF_INSTALL_PACKAGE,
     CONF_INSTALL_THEME,
@@ -45,8 +74,6 @@ from .const import (
     DEFAULT_RECENTLY_ADDED_SENSOR,
     DOMAIN,
     HACS_DEEP_LINK,
-    HELPERS_INPUT_BOOLEAN,
-    HELPERS_INPUT_SELECT,
     PACKAGE_FILENAME,
     PACKAGE_OUTPUT_NAME,
     PACKAGES_OUTPUT_DIR,
@@ -72,7 +99,14 @@ def _ensure_dir(path: Path) -> None:
 
 
 def _write_file(target: Path, content: str) -> bool:
-    """Write content to target. Returns True if file was created/updated."""
+    """Write content to target atomically. Returns True if file was created/updated.
+
+    Writes to a sibling ``<target>.tmp`` first then atomically renames it
+    into place via ``os.replace``. This guarantees the destination is
+    either the old content or the new content -- never a half-written
+    truncated file -- even if the process is killed mid-write (power
+    loss, OOM, container kill, etc).
+    """
     if target.exists():
         try:
             existing = target.read_text(encoding="utf-8")
@@ -81,7 +115,17 @@ def _write_file(target: Path, content: str) -> bool:
         except OSError:
             pass
     _ensure_dir(target.parent)
-    target.write_text(content, encoding="utf-8")
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    try:
+        tmp.write_text(content, encoding="utf-8")
+        os.replace(tmp, target)
+    except OSError:
+        # Best-effort cleanup of partial tmp file before re-raising.
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
     return True
 
 
@@ -122,7 +166,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     install_theme: bool = data.get(CONF_INSTALL_THEME, True)
     install_package: bool = data.get(CONF_INSTALL_PACKAGE, True)
     register_dashboard: bool = data.get(CONF_REGISTER_DASHBOARD, True)
-    create_helpers: bool = data.get(CONF_CREATE_HELPERS, True)
     url_path: str = data.get(CONF_DASHBOARD_URL_PATH, DEFAULT_DASHBOARD_URL_PATH)
     recently_added_sensor: str = (
         data.get(CONF_RECENTLY_ADDED_SENSOR) or DEFAULT_RECENTLY_ADDED_SENSOR
@@ -191,12 +234,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # ---- Helpers --------------------------------------------------------
     # Helpers (input_boolean.plex_dashboard_show_paused,
-    # input_select.plex_dashboard_recently_added_filter, etc.) are now bundled
+    # input_select.plex_dashboard_recently_added_filter, etc.) are bundled
     # directly into plex_dashboard_package.yaml as YAML helpers. They appear
-    # under Settings -> Helpers as read-only YAML entries. The
-    # CONF_CREATE_HELPERS flag is kept for backwards compatibility with
-    # existing config entries but no longer triggers any work here.
-    _ = create_helpers  # silence unused var; flag retained in entry data
+    # under Settings -> Helpers as read-only YAML entries. The legacy
+    # CONF_CREATE_HELPERS flag is no longer exposed in the config flow but
+    # is still accepted from existing config entries (silently ignored).
 
     # ---- Surface missing frontend cards as Repairs -------------------------
     await _async_check_frontend_cards(hass)
@@ -254,6 +296,35 @@ async def _async_register_dashboard(
         _LOGGER.debug("Plex Dashboard: lovelace not initialised yet, skipping register")
         return
 
+    # If HA refactored lovelace internals out from under us, surface a Repair
+    # rather than silently failing -- the bundled YAML on disk still lets the
+    # user register the dashboard manually under Settings -> Dashboards.
+    if not _LOVELACE_INTERNALS_AVAILABLE:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            "lovelace_internals_unavailable",
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="lovelace_internals_unavailable",
+            translation_placeholders={
+                "error": _LOVELACE_IMPORT_ERROR or "unknown",
+                "url_path": url_path,
+            },
+        )
+        _LOGGER.error(
+            "Plex Dashboard: cannot auto-register dashboard: %s. "
+            "The dashboard YAML was still written to disk; add it manually "
+            "under Settings -> Dashboards using URL path '%s'.",
+            _LOVELACE_IMPORT_ERROR,
+            url_path,
+        )
+        return
+
+    # Clear stale Repair if a previous version raised it and HA has since
+    # restored the import.
+    ir.async_delete_issue(hass, DOMAIN, "lovelace_internals_unavailable")
+
     # Parse YAML off the loop
     def _parse() -> dict:
         return yaml.safe_load(dashboard_yaml_text) or {}
@@ -266,14 +337,9 @@ async def _async_register_dashboard(
 
     new_hash = _hash_dashboard(dashboard_config)
 
-    # Find / construct the dashboards collection. It shares the same on-disk
-    # storage as the singleton lovelace created at startup, so loading a fresh
+    # Construct a dashboards collection. It shares the same on-disk storage
+    # as the singleton lovelace created at startup, so loading a fresh
     # instance is safe.
-    from homeassistant.components.lovelace.dashboard import (
-        DashboardsCollection,
-        LovelaceStorage,
-    )
-
     dashboards_collection = DashboardsCollection(hass)
     await dashboards_collection.async_load()
 
@@ -287,17 +353,20 @@ async def _async_register_dashboard(
     )
 
     if existing is None:
+        create_payload: dict[str, Any] = {
+            CONF_URL_PATH: url_path,
+            CONF_TITLE: DEFAULT_DASHBOARD_TITLE,
+            CONF_ICON: DEFAULT_DASHBOARD_ICON,
+            CONF_SHOW_IN_SIDEBAR: True,
+            CONF_REQUIRE_ADMIN: False,
+        }
+        # Only include CONF_ALLOW_SINGLE_WORD on HA versions that ship it;
+        # passing an unknown key trips lovelace's voluptuous schema on
+        # versions that have removed it.
+        if _HAS_ALLOW_SINGLE_WORD:
+            create_payload[CONF_ALLOW_SINGLE_WORD] = True
         try:
-            existing = await dashboards_collection.async_create_item(
-                {
-                    CONF_URL_PATH: url_path,
-                    CONF_TITLE: DEFAULT_DASHBOARD_TITLE,
-                    CONF_ICON: DEFAULT_DASHBOARD_ICON,
-                    CONF_SHOW_IN_SIDEBAR: True,
-                    CONF_REQUIRE_ADMIN: False,
-                    CONF_ALLOW_SINGLE_WORD: True,
-                }
-            )
+            existing = await dashboards_collection.async_create_item(create_payload)
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
                 "Plex Dashboard: could not create dashboard entry %s: %s",

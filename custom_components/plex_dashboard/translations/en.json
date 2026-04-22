@@ -9,8 +9,7 @@
           "dashboard_url_path": "Dashboard URL path",
           "install_theme": "Install Plex Dark theme to /config/themes/",
           "install_package": "Install package to /config/packages/",
-          "register_dashboard": "Register Lovelace dashboard automatically",
-          "create_helpers": "Create input_boolean and input_select helpers"
+          "register_dashboard": "Register Lovelace dashboard automatically"
         }
       }
     },
@@ -32,7 +31,6 @@
           "install_theme": "Re-install Plex Dark theme",
           "install_package": "Re-install package",
           "register_dashboard": "Re-register Lovelace dashboard",
-          "create_helpers": "Re-create helpers",
           "reset_dashboard": "Reset dashboard to bundled version (overwrites edits)"
         }
       }
@@ -50,6 +48,10 @@
     "deployment_health": {
       "title": "Plex Dashboard: {count} deployment issue(s) detected",
       "description": "The dashboard is installed and running, but a few things look off in this deployment. The dashboard handles each gap gracefully (missing pieces collapse instead of erroring), but you can fix them for the full experience:\n\n{findings}\n\nThis Repair clears automatically once the issues are resolved."
+    },
+    "lovelace_internals_unavailable": {
+      "title": "Plex Dashboard: cannot auto-register dashboard",
+      "description": "Plex Dashboard could not auto-register the Lovelace dashboard because the Home Assistant Lovelace storage internals it uses changed in this HA version.\n\n**Error:** `{error}`\n\nThe dashboard YAML was still written to `/config/dashboards/plex_dashboard.yaml`, so you can register it manually:\n\n1. **Settings → Dashboards → Add Dashboard → From YAML**\n2. URL: `{url_path}`, Title: `Plex`, Icon: `mdi:plex`\n3. Filename: `dashboards/plex_dashboard.yaml`\n\nPlease open an issue at https://github.com/kitwalker14/HA_PLEX_DASHBOARD/issues with your HA version so we can restore auto-registration."
     }
   }
 }
