@@ -665,6 +665,7 @@ async def _async_check_deployment_health(
             s.entity_id.endswith("_movie")
             or s.entity_id.endswith("_show")
             or s.entity_id.endswith("_artist")
+            or s.entity_id.endswith("_music")
         )
     )
     if not typed_ra_eids:

@@ -359,14 +359,19 @@ views:
           # `plex_recently_added` HACS integration (v0.6+) emits typed
           # sensors per media type; the suffix uniquely identifies the
           # type:
-          #   *recently_added_movie   -> Movies
-          #   *recently_added_show    -> TV / Episodes
-          #   *recently_added_artist  -> Music (Artists)
+          #   *recently_added_movie           -> Movies
+          #   *recently_added_show            -> TV / Episodes
+          #   *recently_added_(artist|music)  -> Music
           # The leading prefix varies by Plex server slug (e.g.
           # `sensor.plex_recently_added_movie` vs the doubled-prefix
           # `sensor.plex_plex_recently_added_movie`), so a regex match
           # on the suffix avoids any setup-time placeholder substitution
           # and works regardless of slug.
+          #
+          # The Music regex accepts both `_artist` (current
+          # plex_recently_added naming) and `_music` (forward-compat in
+          # case upstream renames it, or for users with custom-named
+          # sensors).
           #
           # `else:` markdown collapses the card cleanly if no matching
           # sensor exists (integration not installed, or that media
@@ -425,7 +430,7 @@ views:
             card_param: cards
             filter:
               include:
-                - entity_id: /^sensor\..*recently_added.*_artist$/
+                - entity_id: /^sensor\..*recently_added.*_(artist|music)$/
                   options:
                     type: custom:upcoming-media-card
                     entity: this.entity_id

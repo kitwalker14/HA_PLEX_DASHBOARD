@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.4] - 2026-04-22
+
+### Changed
+- **Music card now also matches `_music`-suffixed sensors** in
+  addition to the `_artist` suffix that current `plex_recently_added`
+  publishes. Forward-compat for any installs (or future upstream
+  versions) that name their music recently-added sensor `_music`.
+  The dashboard regex is now
+  `/^sensor\..*recently_added.*_(artist|music)$/`. Deployment-health
+  detection updated to match.
+
 ## [2.3.3] - 2026-04-22
 
 ### Fixed
