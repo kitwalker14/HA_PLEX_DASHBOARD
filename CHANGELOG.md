@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-04-22
+
+### Changed
+- **Magazine-grid Overview layout.** The Overview view has been
+  restructured from the v2.3.x "3 tall columns" layout (which left a
+  large empty middle area on wide displays and pushed New Episodes /
+  New Music below the fold) into a 2-row magazine grid:
+  - **Row 1** (4 balanced top tiles): Plex Server / Now Playing /
+    Clients / Libraries.
+  - **Row 2** (full-width heading + filter pill, then 3 side-by-side
+    poster columns): New Movies | New Episodes | New Music.
+- **Recently Added cards now show 3 up.** Each typed card
+  (Movies / Episodes / Music) lives in its own `column_span: 1` grid
+  section with `max: 4` posters, so all three media types are visible
+  on screen simultaneously instead of stacked vertically in a single
+  right-hand column. `image_style: poster` retained.
+- **Now Playing tightened.** Dropped from `column_span: 2` to
+  `column_span: 1` now that Recently Added has its own row, so the
+  middle of the screen is no longer mostly empty when only one client
+  is active.
+- **Libraries promoted to its own top-row tile** (was nested under the
+  Server section in v2.3.x), giving the magazine grid 4 evenly-sized
+  top tiles.
+
+### Removed
+- **Bandwidth gauge tile.** Replaced by the existing inline `Mbps`
+  stat in the quick-stats markdown row, freeing ~250px of vertical
+  space in the Server tile and improving layout density.
+
 ## [2.3.4] - 2026-04-22
 
 ### Changed
