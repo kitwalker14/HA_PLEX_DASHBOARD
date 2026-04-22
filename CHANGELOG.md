@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-04-22
+
+### Fixed
+- **Recently Added cards now actually populate on upgrade.** The
+  setup-time auto-resolve added in v2.3.1 didn't reliably fire (race
+  with `plex_recently_added` populating its sensors during HA boot),
+  so the New Movies / New Episodes / New Music cards still rendered
+  the markdown fallback after upgrade for many users.
+
+### Changed
+- **Discovery moved into the dashboard YAML.** Each Recently Added
+  card now uses an `auto-entities` regex filter
+  (`/^sensor\..*recently_added.*_movie$/` etc.) to locate the right
+  sensor at *render* time, with `count: 1`. This works regardless of
+  the user's Plex server slug (incl. doubled-prefix variants like
+  `sensor.plex_plex_recently_added_movie`) and is immune to setup-time
+  state-machine races. The `else:` markdown still collapses missing
+  cards cleanly.
+- **Dropped 3 typed config fields** (`recently_added_{movies,tv,music}_sensor`)
+  from the config and options flows. They're no longer needed since
+  discovery is automatic. Existing config-entry data carrying the old
+  keys is silently tolerated (no breaking change).
+- **Deployment-health Repair** now emits a single informational
+  finding when no `*_recently_added_*` typed sensors are detected at
+  all, instead of one finding per missing typed sensor.
+
+### Removed
+- `_detect_recently_added_sensors` helper in `config_flow.py`.
+- `PLACEHOLDER_RECENTLY_ADDED*` constants and their substitution in
+  the dashboard YAML pipeline.
+- Setup-time auto-resolve / `entry.data` rewrite from
+  `async_setup_entry`.
+
 ## [2.3.2] - 2026-04-22
 
 ### Fixed

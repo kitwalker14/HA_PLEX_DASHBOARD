@@ -17,65 +17,15 @@ from .const import (
     CONF_INSTALL_PACKAGE,
     CONF_INSTALL_THEME,
     CONF_PLEX_SLUG,
-    CONF_RECENTLY_ADDED_MOVIES_SENSOR,
-    CONF_RECENTLY_ADDED_MUSIC_SENSOR,
-    CONF_RECENTLY_ADDED_TV_SENSOR,
     CONF_REGISTER_DASHBOARD,
     CONF_RESET_DASHBOARD,
     DEFAULT_DASHBOARD_URL_PATH,
-    DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR,
-    DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR,
-    DEFAULT_RECENTLY_ADDED_TV_SENSOR,
     DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 PLEX_SENSOR_RE = re.compile(r"^sensor\.plex_(?!library_|recently_added_)([a-z0-9_]+)$")
-RECENTLY_ADDED_RE = re.compile(r"^sensor\..*recently_added.*$")
-
-# Suffix -> (config_key, default) mapping for the typed sensors that
-# `plex_recently_added` v0.6.x publishes. The detection function below
-# uses these suffixes to bucket auto-detected candidates.
-_TYPED_SUFFIXES: dict[str, tuple[str, str]] = {
-    "_movie": (CONF_RECENTLY_ADDED_MOVIES_SENSOR, DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR),
-    "_show": (CONF_RECENTLY_ADDED_TV_SENSOR, DEFAULT_RECENTLY_ADDED_TV_SENSOR),
-    "_artist": (CONF_RECENTLY_ADDED_MUSIC_SENSOR, DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR),
-}
-
-
-def _detect_recently_added_sensors(hass) -> dict[str, list[str]]:
-    """Return candidate per-type `plex_recently_added` source sensors.
-
-    Returns a dict keyed by media-type bucket name (`movies`, `tv`,
-    `music`, `other`) of sensors matching `sensor.*recently_added*` that
-    expose a `data` list attribute (which is what `upcoming-media-card`
-    consumes).
-
-    plex_recently_added v0.6.x ships separate sensors per media type,
-    suffixed `_movie` / `_show` / `_artist`. Anything else with
-    `recently_added` in its name (notably the legacy unified sensor)
-    goes into the `other` bucket so the user can still pick it manually
-    if they're on an older version of the integration.
-    """
-    buckets: dict[str, list[str]] = {"movies": [], "tv": [], "music": [], "other": []}
-    for state in hass.states.async_all("sensor"):
-        if not RECENTLY_ADDED_RE.match(state.entity_id):
-            continue
-        if not isinstance(state.attributes.get("data"), list):
-            continue
-        eid = state.entity_id
-        if eid.endswith("_movie"):
-            buckets["movies"].append(eid)
-        elif eid.endswith("_show"):
-            buckets["tv"].append(eid)
-        elif eid.endswith("_artist"):
-            buckets["music"].append(eid)
-        else:
-            buckets["other"].append(eid)
-    for k in buckets:
-        buckets[k].sort()
-    return buckets
 
 
 def _detect_plex_slugs(hass) -> list[str]:
@@ -152,21 +102,6 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                             CONF_DASHBOARD_URL_PATH, DEFAULT_DASHBOARD_URL_PATH
                         ).strip()
                         or DEFAULT_DASHBOARD_URL_PATH,
-                        CONF_RECENTLY_ADDED_MOVIES_SENSOR: (
-                            user_input.get(CONF_RECENTLY_ADDED_MOVIES_SENSOR)
-                            or DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR
-                        ).strip()
-                        or DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR,
-                        CONF_RECENTLY_ADDED_TV_SENSOR: (
-                            user_input.get(CONF_RECENTLY_ADDED_TV_SENSOR)
-                            or DEFAULT_RECENTLY_ADDED_TV_SENSOR
-                        ).strip()
-                        or DEFAULT_RECENTLY_ADDED_TV_SENSOR,
-                        CONF_RECENTLY_ADDED_MUSIC_SENSOR: (
-                            user_input.get(CONF_RECENTLY_ADDED_MUSIC_SENSOR)
-                            or DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR
-                        ).strip()
-                        or DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR,
                         CONF_INSTALL_THEME: user_input.get(CONF_INSTALL_THEME, True),
                         CONF_INSTALL_PACKAGE: user_input.get(
                             CONF_INSTALL_PACKAGE, True
@@ -189,36 +124,6 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
         else:
             slug_field = selector.TextSelector()
 
-        # Recently-added per-type sensor fields. Each is a dropdown of
-        # auto-detected candidates (filtered by entity_id suffix:
-        # `_movie` -> movies, `_show` -> TV, `_artist` -> music) with a
-        # free-text fallback. For buckets with no candidates we fall
-        # back to anything else with `recently_added` in the name (the
-        # `other` bucket) so users on the legacy unified-sensor version
-        # of the integration can still pick something sensible.
-        ra_buckets = _detect_recently_added_sensors(self.hass)
-
-        def _ra_field(bucket: str, default: str):
-            opts = ra_buckets.get(bucket) or ra_buckets.get("other") or []
-            chosen_default = opts[0] if opts else default
-            if opts:
-                return chosen_default, selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=opts,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                        custom_value=True,
-                    )
-                )
-            return chosen_default, selector.TextSelector()
-
-        movies_default, movies_field = _ra_field(
-            "movies", DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR
-        )
-        tv_default, tv_field = _ra_field("tv", DEFAULT_RECENTLY_ADDED_TV_SENSOR)
-        music_default, music_field = _ra_field(
-            "music", DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR
-        )
-
         schema = vol.Schema(
             {
                 vol.Required(
@@ -227,15 +132,6 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_DASHBOARD_URL_PATH, default=DEFAULT_DASHBOARD_URL_PATH
                 ): str,
-                vol.Optional(
-                    CONF_RECENTLY_ADDED_MOVIES_SENSOR, default=movies_default
-                ): movies_field,
-                vol.Optional(
-                    CONF_RECENTLY_ADDED_TV_SENSOR, default=tv_default
-                ): tv_field,
-                vol.Optional(
-                    CONF_RECENTLY_ADDED_MUSIC_SENSOR, default=music_default
-                ): music_field,
                 vol.Optional(CONF_INSTALL_THEME, default=True): bool,
                 vol.Optional(CONF_INSTALL_PACKAGE, default=True): bool,
                 vol.Optional(CONF_REGISTER_DASHBOARD, default=True): bool,
@@ -288,27 +184,6 @@ class PlexDashboardOptionsFlow(OptionsFlow):
                     CONF_DASHBOARD_URL_PATH,
                     default=current.get(
                         CONF_DASHBOARD_URL_PATH, DEFAULT_DASHBOARD_URL_PATH
-                    ),
-                ): str,
-                vol.Optional(
-                    CONF_RECENTLY_ADDED_MOVIES_SENSOR,
-                    default=current.get(
-                        CONF_RECENTLY_ADDED_MOVIES_SENSOR,
-                        DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR,
-                    ),
-                ): str,
-                vol.Optional(
-                    CONF_RECENTLY_ADDED_TV_SENSOR,
-                    default=current.get(
-                        CONF_RECENTLY_ADDED_TV_SENSOR,
-                        DEFAULT_RECENTLY_ADDED_TV_SENSOR,
-                    ),
-                ): str,
-                vol.Optional(
-                    CONF_RECENTLY_ADDED_MUSIC_SENSOR,
-                    default=current.get(
-                        CONF_RECENTLY_ADDED_MUSIC_SENSOR,
-                        DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR,
                     ),
                 ): str,
                 vol.Optional(

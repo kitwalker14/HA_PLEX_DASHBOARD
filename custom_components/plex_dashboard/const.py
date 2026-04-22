@@ -10,32 +10,16 @@ CONF_INSTALL_THEME = "install_theme"
 CONF_INSTALL_PACKAGE = "install_package"
 CONF_REGISTER_DASHBOARD = "register_dashboard"
 CONF_CREATE_HELPERS = "create_helpers"
-# Entity_ids of the optional `plex_recently_added` HACS integration's
-# per-type sensors. v0.6.x of that integration ships separate sensors per
-# media type (movies, shows, music) rather than one unified sensor; each
-# sensor's `data` attribute is what `upcoming-media-card` consumes
-# directly. We surface three independent config fields so the user can
-# pick (or auto-detect) the right entity for each card.
-#
-# Naming convention from plex_recently_added v0.6.x:
-#   sensor.<name>_recently_added_movie   -> Movies
-#   sensor.<name>_recently_added_show    -> TV episodes
-#   sensor.<name>_recently_added_artist  -> Music
-# where <name> is the integration's `name:` option (default `plex`),
-# which gets doubled for Plex servers whose own slug starts with `plex`.
+# Legacy keys -- retained for backward compatibility with existing
+# config entries from v2.2.x / v2.3.0-v2.3.2. As of v2.3.3 the dashboard
+# discovers `plex_recently_added` typed sensors via auto-entities regex
+# at render time, so none of these keys are read or written by the
+# integration anymore. They are silently tolerated if present in
+# entry.data so existing installs don't error on upgrade.
+CONF_RECENTLY_ADDED_SENSOR = "recently_added_sensor"
 CONF_RECENTLY_ADDED_MOVIES_SENSOR = "recently_added_movies_sensor"
 CONF_RECENTLY_ADDED_TV_SENSOR = "recently_added_tv_sensor"
 CONF_RECENTLY_ADDED_MUSIC_SENSOR = "recently_added_music_sensor"
-DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR = "sensor.plex_recently_added_movie"
-DEFAULT_RECENTLY_ADDED_TV_SENSOR = "sensor.plex_recently_added_show"
-DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR = "sensor.plex_recently_added_artist"
-
-# Legacy single-sensor key. Retained for backward-compat: existing config
-# entries from v2.2.x carry this field, and our setup code silently
-# tolerates it (it is no longer read or written, since the per-type
-# sensors above replaced the heuristic template-sensor approach).
-CONF_RECENTLY_ADDED_SENSOR = "recently_added_sensor"
-DEFAULT_RECENTLY_ADDED_SENSOR = "sensor.plex_recently_added"
 # Options-flow toggle: when True on next reload, force-overwrite the
 # Lovelace storage payload with the bundled YAML, ignoring the
 # "user may have edited it" safety check. Auto-clears after one run.
@@ -66,10 +50,6 @@ DASHBOARD_OUTPUT_NAME = "plex_dashboard.yaml"
 PACKAGE_OUTPUT_NAME = "plex_dashboard.yaml"
 
 PLACEHOLDER_SLUG = "PLEX_SERVER_NAME"
-PLACEHOLDER_RECENTLY_ADDED = "PLEX_RECENTLY_ADDED_SENSOR"
-PLACEHOLDER_RECENTLY_ADDED_MOVIES = "PLEX_RECENTLY_ADDED_MOVIES_SENSOR"
-PLACEHOLDER_RECENTLY_ADDED_TV = "PLEX_RECENTLY_ADDED_TV_SENSOR"
-PLACEHOLDER_RECENTLY_ADDED_MUSIC = "PLEX_RECENTLY_ADDED_MUSIC_SENSOR"
 
 # Required HACS frontend cards (custom: element name -> friendly name + repo).
 # Kept intentionally small: anything that has a built-in equivalent (mushroom,
