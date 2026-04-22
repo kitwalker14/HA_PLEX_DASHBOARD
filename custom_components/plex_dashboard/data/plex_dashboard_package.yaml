@@ -131,7 +131,13 @@ script:
     alias: "Plex: Pause All Streams"
     icon: mdi:pause
     sequence:
+      # Guard: only call media_pause when there is at least one active
+      # Plex client. Without this guard, a tap with no active streams
+      # passes `None` as entity_id and raises in HA's service handler.
+      - condition: template
+        value_template: >-
+          {{ states('sensor.plex_active_streams') | int(0) > 0 }}
       - service: media_player.media_pause
         target:
           entity_id: >-
-            {{ state_attr('sensor.plex_active_client_ids','entities') }}
+            {{ state_attr('sensor.plex_active_client_ids','entities') or [] }}

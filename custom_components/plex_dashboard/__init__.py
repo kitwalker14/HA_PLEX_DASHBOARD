@@ -196,6 +196,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if install_package and file_results.get("package"):
         await _async_check_packages_enabled(hass)
 
+    # ---- Surface deployment-health gaps as a Repair ------------------------
+    # (missing libraries, slug mismatch, optional integrations not detected)
+    await _async_check_deployment_health(hass, entry)
+
     # Surface a one-time persistent notification with restart hint if any file
     # was newly installed (packages/themes only take effect after restart).
     if any(file_results.values()):
@@ -460,3 +464,102 @@ async def _async_notify_restart(
         )
     except Exception as err:  # noqa: BLE001
         _LOGGER.debug("Could not post restart notification: %s", err)
+
+
+# ---------------------------------------------------------------------------
+# Repairs: detect deployment-health gaps (slug mismatch, missing libraries,
+# optional integrations not detected). Purely informational -- the dashboard
+# itself collapses missing pieces gracefully via auto-entities, but a single
+# Repair entry helps users find the gaps.
+# ---------------------------------------------------------------------------
+async def _async_check_deployment_health(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
+    """Detect common gaps and surface them as one consolidated Repair.
+
+    Each finding is a markdown bullet pointing the user at the fix. We
+    intentionally bundle these into a single Repair so the user sees one
+    actionable summary rather than five low-priority notices.
+    """
+    issue_id = "deployment_health"
+    findings: list[str] = []
+
+    slug = entry.data.get(CONF_PLEX_SLUG, "")
+
+    # 1) Plex server slug actually resolves to a sensor.
+    if slug and hass.states.get(f"sensor.plex_{slug}") is None:
+        # Look for any sensor.plex_* that could be the real slug
+        candidates = sorted(
+            s.entity_id.removeprefix("sensor.plex_")
+            for s in hass.states.async_all("sensor")
+            if s.entity_id.startswith("sensor.plex_")
+            and "_library_" not in s.entity_id
+            and s.entity_id
+            not in {
+                "sensor.plex_active_streams",
+                "sensor.plex_active_client_ids",
+                "sensor.plex_total_bandwidth_mbps",
+                "sensor.plex_server_online",
+            }
+        )
+        hint = (
+            f" Detected candidates: `{', '.join(candidates[:5])}`."
+            if candidates
+            else ""
+        )
+        findings.append(
+            f"- **Plex server slug mismatch** — configured slug `{slug}` "
+            f"doesn't match any `sensor.plex_<slug>` entity.{hint} "
+            "Update the slug in **Settings → Devices & Services → "
+            "Plex Dashboard → Configure**."
+        )
+
+    # 2) At least one Plex library sensor is exposed.
+    library_sensors = [
+        s.entity_id
+        for s in hass.states.async_all("sensor")
+        if s.entity_id.startswith("sensor.plex_") and "_library_" in s.entity_id
+    ]
+    if not library_sensors:
+        findings.append(
+            "- **No Plex library sensors found.** Open **Settings → "
+            "Devices & Services → Plex → Configure** and tick the libraries "
+            "you want exposed as sensors. The Libraries section will stay "
+            "empty until at least one is enabled."
+        )
+
+    # 3) Optional integrations (informational only)
+    if hass.states.get("sensor.tautulli_bandwidth_total") is None:
+        findings.append(
+            "- _Optional:_ **Tautulli** integration not detected — bandwidth "
+            "gauge will read 0. [Install Tautulli]"
+            "(https://www.home-assistant.io/integrations/tautulli/) to "
+            "populate it."
+        )
+    if (
+        hass.states.get("sensor.radarr_upcoming_media") is None
+        and hass.states.get("sensor.sonarr_upcoming_media") is None
+    ):
+        findings.append(
+            "- _Optional:_ neither **Radarr** nor **Sonarr** detected — "
+            "the Coming Soon view will show install hints. "
+            "[Radarr](https://www.home-assistant.io/integrations/radarr/) · "
+            "[Sonarr](https://www.home-assistant.io/integrations/sonarr/)."
+        )
+
+    if not findings:
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
+        return
+
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        issue_id,
+        is_fixable=False,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key="deployment_health",
+        translation_placeholders={
+            "count": str(len(findings)),
+            "findings": "\n".join(findings),
+        },
+    )

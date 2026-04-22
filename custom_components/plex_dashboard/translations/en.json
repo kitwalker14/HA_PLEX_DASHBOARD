@@ -46,6 +46,10 @@
     "packages_not_loaded": {
       "title": "Plex Dashboard: packages not enabled",
       "description": "The Plex Dashboard package was written to `/config/packages/plex_dashboard.yaml`, but it doesn't appear to be loaded.\n\nAdd this to your `configuration.yaml` and restart Home Assistant:\n\n```yaml\nhomeassistant:\n  packages: !include_dir_named packages\n```"
+    },
+    "deployment_health": {
+      "title": "Plex Dashboard: {count} deployment issue(s) detected",
+      "description": "The dashboard is installed and running, but a few things look off in this deployment. The dashboard handles each gap gracefully (missing pieces collapse instead of erroring), but you can fix them for the full experience:\n\n{findings}\n\nThis Repair clears automatically once the issues are resolved."
     }
   }
 }

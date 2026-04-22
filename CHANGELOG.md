@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-04-22
+
+### Added
+- **New "Deployment health" Repair.** Detects and surfaces in one
+  consolidated Repair entry: (a) Plex server slug mismatch (configured
+  slug doesn't resolve to any `sensor.plex_<slug>`, with detected
+  candidates listed), (b) no Plex library sensors enabled, (c) Tautulli
+  not detected (bandwidth gauge will read 0), (d) neither Sonarr nor
+  Radarr detected (Coming Soon view will show install hints). Each
+  finding includes an actionable fix link. Repair clears automatically
+  when issues are resolved.
+
+### Changed
+- **Full deployment-agnostic rewrite.** The dashboard now makes zero
+  assumptions about the user's Plex server slug, optional integrations,
+  or whether the package YAML helpers were installed. Every block uses
+  one of: `custom:auto-entities` with `show_empty: false` + an `else:`
+  fallback, glob entity filters, or defensive Jinja with `has_value()`
+  guards. Missing pieces collapse cleanly instead of erroring.
+- **Libraries section: glob filter (`sensor.plex_*_library_*`)** matches
+  any Plex server slug, not just a hardcoded one. Previously the filter
+  was `sensor.plex_library_*`, which never matched any real Plex
+  integration entity (Plex creates them as
+  `sensor.plex_<server_slug>_library_<library_name>`). The filter also
+  now excludes the bundled package's `sensor.plex_*` template sensors so
+  they don't accidentally appear in the Libraries list.
+- **Plex Server tile, Bandwidth gauge, and server-action buttons** are
+  now wrapped in `custom:auto-entities` so a missing
+  `sensor.plex_server_online`, `sensor.plex_total_bandwidth_mbps`, or
+  bundled scripts collapse cleanly instead of rendering red error tiles.
+- **Quick stats markdown** uses `has_value()` guards on every state
+  read, so missing template sensors render as `0` / `--` instead of
+  `unknown`.
+- **Coming Soon view (Radarr/Sonarr cards) wrapped in `auto-entities`
+  with `else:` fallback markdown** — a missing
+  `sensor.radarr_upcoming_media` / `sensor.sonarr_upcoming_media` now
+  shows an "install the integration" hint instead of an empty card.
+- **Settings entities card wrapped in auto-entities** — missing helpers
+  collapse instead of rendering "Entity not found" rows.
+
+### Fixed
+- **`script.plex_pause_all` no longer errors when no streams are
+  active.** Added a guard condition so the script only invokes
+  `media_player.media_pause` when at least one Plex client is streaming
+  (previously, tapping the button with nothing playing passed `None` as
+  `entity_id` and raised in HA's service handler).
+
 ## [2.1.7] - 2026-04-22
 
 ### Fixed
