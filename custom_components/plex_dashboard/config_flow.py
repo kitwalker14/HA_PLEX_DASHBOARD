@@ -39,6 +39,37 @@ def _detect_plex_slugs(hass) -> list[str]:
     return sorted(slugs)
 
 
+def _normalize_slug(hass, raw: str) -> str:
+    """Smart slug normalization.
+
+    Some users paste a full entity prefix (`sensor.plex_myserver`) into
+    the slug field; others have a Plex server whose name legitimately
+    starts with `plex` (e.g. `plex.lwk.space` slugifies to
+    `plex_lwk_space`, producing `sensor.plex_plex_lwk_space`).
+
+    We can't tell these apart syntactically, so we resolve against the
+    state machine: only strip a `sensor.plex_` / `sensor.` / `plex_`
+    prefix when the un-stripped slug does NOT match an existing
+    `sensor.plex_<slug>` AND the stripped form does. Otherwise the user's
+    input is returned untouched.
+    """
+    raw = raw.strip().lower()
+    if not raw:
+        return raw
+    # If the input as-given resolves, trust it.
+    if hass.states.get(f"sensor.plex_{raw}") is not None:
+        return raw
+    # Otherwise try progressively stripping known prefixes.
+    for prefix in ("sensor.plex_", "sensor.", "plex_"):
+        if raw.startswith(prefix):
+            stripped = raw[len(prefix):]
+            if stripped and hass.states.get(f"sensor.plex_{stripped}") is not None:
+                return stripped
+    # No resolution either way -- return as-given so the user sees the
+    # exact value they typed in the deployment_health Repair message.
+    return raw
+
+
 class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
     """Single-instance config flow for Plex Dashboard."""
 
@@ -57,14 +88,8 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            slug = (user_input.get(CONF_PLEX_SLUG) or "").strip().lower()
-            # Be forgiving: users frequently paste the full entity prefix
-            # (e.g. `sensor.plex_myserver` or `plex_myserver`) instead of
-            # just the slug (`myserver`). Strip those automatically so we
-            # don't end up looking for sensor.plex_plex_myserver.
-            for prefix in ("sensor.plex_", "sensor.", "plex_"):
-                if slug.startswith(prefix):
-                    slug = slug[len(prefix):]
+            raw_slug = (user_input.get(CONF_PLEX_SLUG) or "").strip().lower()
+            slug = _normalize_slug(self.hass, raw_slug)
             if not slug:
                 errors[CONF_PLEX_SLUG] = "slug_required"
             elif not re.match(r"^[a-z0-9_]+$", slug):
@@ -148,14 +173,10 @@ class PlexDashboardOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
-            # Same slug-sanitization as the user step: strip any
-            # accidentally-pasted entity prefix so we never end up
-            # with `plex_plex_<slug>`.
-            slug = (user_input.get(CONF_PLEX_SLUG) or "").strip().lower()
-            for prefix in ("sensor.plex_", "sensor.", "plex_"):
-                if slug.startswith(prefix):
-                    slug = slug[len(prefix):]
-            user_input[CONF_PLEX_SLUG] = slug
+            # Smart slug normalization: only strip prefixes if doing so
+            # actually resolves to a real sensor.plex_<slug> entity.
+            raw_slug = (user_input.get(CONF_PLEX_SLUG) or "").strip().lower()
+            user_input[CONF_PLEX_SLUG] = _normalize_slug(self.hass, raw_slug)
             return self.async_create_entry(title="", data=user_input)
 
         current = {**self._entry_data, **self._entry_options}

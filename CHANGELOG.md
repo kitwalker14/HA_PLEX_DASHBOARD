@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-04-22
+
+### Fixed
+- **Slug auto-stripping no longer breaks legitimately `plex_`-prefixed
+  slugs.** v2.2.1 unconditionally stripped a leading `plex_` from the
+  slug input -- but Plex servers whose name starts with `plex` (e.g.
+  `plex.lwk.space`) legitimately slugify to `plex_lwk_space`, producing
+  `sensor.plex_plex_lwk_space`. The new normalization checks the state
+  machine: only strip a prefix if (a) the un-stripped slug does NOT
+  resolve to an existing `sensor.plex_<slug>` entity, AND (b) the
+  stripped form DOES. Otherwise the user's input is left alone.
+- **Deployment-health Repair uses the same logic.** The "extra `plex_`
+  prefix" finding now only fires when the stripped form actually
+  resolves and the original doesn't, instead of misdiagnosing every
+  `plex_*` slug as wrong.
+
 ## [2.2.1] - 2026-04-22
 
 ### Fixed

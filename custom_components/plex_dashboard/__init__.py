@@ -502,20 +502,27 @@ async def _async_check_deployment_health(
                 "sensor.plex_server_online",
             }
         )
-        # Common footgun: user pasted the entity prefix into the slug
-        # field, so the saved slug is `plex_<realslug>` and we ended up
-        # looking for `sensor.plex_plex_<realslug>`. Detect & call out.
+        # Common footgun #1: user pasted the entity prefix into the slug
+        # field (slug=`plex_<X>`, sensor.plex_<X> exists, sensor.plex_plex_<X>
+        # does NOT). Only suggest stripping if both conditions hold --
+        # otherwise users with legitimately `plex_`-prefixed slugs (e.g.
+        # server named `plex.lwk.space` -> slug `plex_lwk_space`) get bad
+        # advice telling them to remove a prefix they actually need.
         stripped = slug
         for prefix in ("sensor.plex_", "sensor.", "plex_"):
             if stripped.startswith(prefix):
                 stripped = stripped[len(prefix):]
-        if stripped != slug and hass.states.get(f"sensor.plex_{stripped}") is not None:
+                break
+        if (
+            stripped != slug
+            and hass.states.get(f"sensor.plex_{stripped}") is not None
+        ):
             findings.append(
                 f"- **Plex slug has an extra `plex_` prefix.** Configured "
-                f"slug is `{slug}`, but `sensor.plex_{stripped}` exists. "
-                f"Open **Settings → Devices & Services → Plex Dashboard "
-                f"→ Configure** and change the slug to `{stripped}` "
-                "(without the `plex_` prefix)."
+                f"slug is `{slug}`, but `sensor.plex_{stripped}` exists "
+                f"and `sensor.plex_{slug}` does not. Open **Settings → "
+                f"Devices & Services → Plex Dashboard → Configure** and "
+                f"change the slug to `{stripped}`."
             )
         else:
             hint = (
