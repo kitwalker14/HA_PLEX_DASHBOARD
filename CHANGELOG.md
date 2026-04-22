@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.6] - 2026-04-22
+
+### Fixed
+- **Recently Added section "Configuration error" tiles.** All five
+  conditional cards in the Recently Added column (filter pill, Movies,
+  TV, Music, fallback markdown) were rendering as "Configuration error"
+  red tiles. Root cause: Home Assistant Sections-view grids
+  (`type: grid`) do **not** support `type: conditional` as a direct
+  child -- each grid child must be a layout-aware card, and conditional
+  is not. The five conditionals are now wrapped in a single
+  `vertical-stack` so the grid sees one card and lets the stack manage
+  its conditional children. No user action required beyond reloading
+  the dashboard YAML (Settings -> Devices & services -> Plex Dashboard
+  -> Configure -> enable "Reset dashboard YAML on next reload").
+
 ## [2.1.5] - 2026-04-21
 
 ### Changed

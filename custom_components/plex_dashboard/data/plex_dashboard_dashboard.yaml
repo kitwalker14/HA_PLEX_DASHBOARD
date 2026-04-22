@@ -247,113 +247,124 @@ views:
             heading_style: title
             icon: mdi:new-box
 
-          # Filter pill -- only render if the helper exists. The Plex Dashboard
-          # integration creates this input_select on setup, but if the user
-          # disabled "Create helpers" we hide the row to avoid "Entity not
-          # found" warnings.
-          - type: conditional
-            conditions:
-              - condition: template
-                value_template: >-
-                  {{ states.input_select.plex_dashboard_recently_added_filter is not none }}
-            card:
-              type: entities
-              entities:
-                - entity: input_select.plex_dashboard_recently_added_filter
-                  name: Show
+          # NOTE: HA Sections-view grids ("type: grid") do NOT support
+          # `type: conditional` as a direct child -- each grid child must be
+          # a layout-aware card. We wrap all conditionals in a single
+          # vertical-stack so the grid sees one card and lets the stack
+          # manage its conditional children. Without this wrapper every
+          # conditional renders as "Configuration error".
+          - type: vertical-stack
+            cards:
 
-          # Movies recently added.
-          # Three layers of guard:
-          # (1) sensor must exist (states.sensor.<x> is not none)
-          # (2) sensor must expose the `data` attribute that upcoming-media-card
-          #     requires -- if a same-named sensor exists from another source
-          #     it would render as "Configuration error" without this check
-          # (3) the filter helper must select All or this category
-          - type: conditional
-            conditions:
-              - condition: template
-                value_template: >-
-                  {% set s = states.sensor.plex_recently_added_movies %}
-                  {% set f = states('input_select.plex_dashboard_recently_added_filter') %}
-                  {{ s is not none
-                     and s.attributes.data is defined
-                     and (s.attributes.data | count) > 0
-                     and f in ['All','Movies','unknown'] }}
-            card:
-              type: custom:upcoming-media-card
-              entity: sensor.plex_recently_added_movies
-              title: New Movies
-              image_style: poster
-              max: 6
-              date: mmdd
+              # Filter pill -- only render if the helper exists. The Plex
+              # Dashboard integration creates this input_select on setup, but
+              # if the user disabled "Create helpers" we hide the row to
+              # avoid "Entity not found" warnings.
+              - type: conditional
+                conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ states.input_select.plex_dashboard_recently_added_filter is not none }}
+                card:
+                  type: entities
+                  entities:
+                    - entity: input_select.plex_dashboard_recently_added_filter
+                      name: Show
 
-          # TV recently added
-          - type: conditional
-            conditions:
-              - condition: template
-                value_template: >-
-                  {% set s = states.sensor.plex_recently_added_tv %}
-                  {% set f = states('input_select.plex_dashboard_recently_added_filter') %}
-                  {{ s is not none
-                     and s.attributes.data is defined
-                     and (s.attributes.data | count) > 0
-                     and f in ['All','TV','unknown'] }}
-            card:
-              type: custom:upcoming-media-card
-              entity: sensor.plex_recently_added_tv
-              title: New Episodes
-              image_style: poster
-              max: 6
-              date: mmdd
+              # Movies recently added.
+              # Three layers of guard:
+              # (1) sensor must exist (states.sensor.<x> is not none)
+              # (2) sensor must expose the `data` attribute that
+              #     upcoming-media-card requires -- if a same-named sensor
+              #     exists from another source it would render as
+              #     "Configuration error" without this check
+              # (3) the filter helper must select All or this category
+              - type: conditional
+                conditions:
+                  - condition: template
+                    value_template: >-
+                      {% set s = states.sensor.plex_recently_added_movies %}
+                      {% set f = states('input_select.plex_dashboard_recently_added_filter') %}
+                      {{ s is not none
+                         and s.attributes.data is defined
+                         and (s.attributes.data | count) > 0
+                         and f in ['All','Movies','unknown'] }}
+                card:
+                  type: custom:upcoming-media-card
+                  entity: sensor.plex_recently_added_movies
+                  title: New Movies
+                  image_style: poster
+                  max: 6
+                  date: mmdd
 
-          # Music recently added
-          - type: conditional
-            conditions:
-              - condition: template
-                value_template: >-
-                  {% set s = states.sensor.plex_recently_added_music %}
-                  {% set f = states('input_select.plex_dashboard_recently_added_filter') %}
-                  {{ s is not none
-                     and s.attributes.data is defined
-                     and (s.attributes.data | count) > 0
-                     and f in ['All','Music','unknown'] }}
-            card:
-              type: custom:upcoming-media-card
-              entity: sensor.plex_recently_added_music
-              title: New Albums
-              image_style: poster
-              max: 6
-              date: mmdd
+              # TV recently added
+              - type: conditional
+                conditions:
+                  - condition: template
+                    value_template: >-
+                      {% set s = states.sensor.plex_recently_added_tv %}
+                      {% set f = states('input_select.plex_dashboard_recently_added_filter') %}
+                      {{ s is not none
+                         and s.attributes.data is defined
+                         and (s.attributes.data | count) > 0
+                         and f in ['All','TV','unknown'] }}
+                card:
+                  type: custom:upcoming-media-card
+                  entity: sensor.plex_recently_added_tv
+                  title: New Episodes
+                  image_style: poster
+                  max: 6
+                  date: mmdd
 
-          # Fallback markdown: shown when none of the recently-added sensors
-          # exist OR none of them carry the upcoming-media-card-compatible
-          # `data` attribute. The optional `plex_recently_added` HACS custom
-          # integration creates compliant sensors.
-          - type: conditional
-            conditions:
-              - condition: template
-                value_template: >-
-                  {% set m = states.sensor.plex_recently_added_movies %}
-                  {% set t = states.sensor.plex_recently_added_tv %}
-                  {% set u = states.sensor.plex_recently_added_music %}
-                  {% set has = namespace(any=false) %}
-                  {% for s in [m, t, u] %}
-                    {% if s is not none and s.attributes.data is defined
-                          and (s.attributes.data | count) > 0 %}
-                      {% set has.any = true %}
-                    {% endif %}
-                  {% endfor %}
-                  {{ not has.any }}
-            card:
-              type: markdown
-              content: >-
-                _No usable `sensor.plex_recently_added_*` entities found._
-                <br><br>
-                Install the optional
-                [**plex_recently_added**](https://github.com/custom-components/plex_recently_added)
-                HACS custom integration to populate this section with new
-                movies, episodes, and albums. (The Plex core integration
-                does **not** create these sensors.)
+              # Music recently added
+              - type: conditional
+                conditions:
+                  - condition: template
+                    value_template: >-
+                      {% set s = states.sensor.plex_recently_added_music %}
+                      {% set f = states('input_select.plex_dashboard_recently_added_filter') %}
+                      {{ s is not none
+                         and s.attributes.data is defined
+                         and (s.attributes.data | count) > 0
+                         and f in ['All','Music','unknown'] }}
+                card:
+                  type: custom:upcoming-media-card
+                  entity: sensor.plex_recently_added_music
+                  title: New Albums
+                  image_style: poster
+                  max: 6
+                  date: mmdd
+
+              # Fallback markdown: shown when none of the recently-added
+              # sensors exist OR none of them carry the
+              # upcoming-media-card-compatible `data` attribute. The optional
+              # `plex_recently_added` HACS custom integration creates
+              # compliant sensors.
+              - type: conditional
+                conditions:
+                  - condition: template
+                    value_template: >-
+                      {% set m = states.sensor.plex_recently_added_movies %}
+                      {% set t = states.sensor.plex_recently_added_tv %}
+                      {% set u = states.sensor.plex_recently_added_music %}
+                      {% set has = namespace(any=false) %}
+                      {% for s in [m, t, u] %}
+                        {% if s is not none and s.attributes.data is defined
+                              and (s.attributes.data | count) > 0 %}
+                          {% set has.any = true %}
+                        {% endif %}
+                      {% endfor %}
+                      {{ not has.any }}
+                card:
+                  type: markdown
+                  content: >-
+                    _No usable `sensor.plex_recently_added_*` entities found._
+                    <br><br>
+                    Install the optional
+                    [**plex_recently_added**](https://github.com/custom-components/plex_recently_added)
+                    HACS custom integration to populate this section with new
+                    movies, episodes, and albums. (The Plex core integration
+                    does **not** create these sensors.)
 
   # ===========================================================================
   # SECONDARY VIEW – Coming Soon (Sonarr / Radarr)
