@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.7] - 2026-04-22
+
+### Fixed
+- **Recently Added "Configuration error" tiles (real fix).** v2.1.6
+  attempted to fix this by wrapping the conditionals in a
+  `vertical-stack` -- that was the wrong diagnosis and the red tiles
+  persisted. Live debugging on a user dashboard proved
+  (a) `upcoming-media-card` works fine when used directly in a
+  Sections-view grid (the Coming Soon view renders Radarr/Sonarr cards
+  correctly even with missing sensors -- they just show empty progress
+  bars), and (b) the same helper entities render fine in a plain
+  `entities` card. The bug was specifically the
+  `condition: template` blocks: in HA Sections-view layouts, conditional
+  cards using template conditions render as red tiles regardless of
+  whether they're nested in a vertical-stack.
+
+### Changed
+- **Recently Added section rewritten without conditionals.** The filter
+  pill now uses `custom:auto-entities` with `show_empty: false` (handles
+  missing helper gracefully). The 3 `upcoming-media-card` blocks are
+  rendered directly with no wrapper -- if `sensor.plex_recently_added_*`
+  doesn't exist, the card shows an empty progress bar (same behavior as
+  the Coming Soon view). The "install plex_recently_added" markdown
+  fallback was removed (it was tied to the conditional logic); see
+  README for setup instructions instead.
+
 ## [2.1.6] - 2026-04-22
 
 ### Fixed
