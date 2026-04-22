@@ -176,6 +176,21 @@ views:
           # `else:` (a fallback card rendered when zero entities match)
           # instead of `show_empty:false`, because some HA versions render
           # the zero-entity entities-card as a "Configuration error" tile.
+          #
+          # Excludes:
+          # - bundled package template sensors (plex_active_streams etc.)
+          # - "doubled-prefix" orphans: when a Plex server has been
+          #   re-added or an old config entry leaves stragglers, HA can
+          #   end up with `sensor.plex_<slug>_plex_<slug>_library_*`
+          #   entries that duplicate the real library counts. The
+          #   `sensor.plex_*_plex_*_library_*` glob filters them out
+          #   regardless of slug. Real library sensors only have ONE
+          #   `plex_<slug>` segment.
+          # - numeric-suffix orphans (`_2`, `_3`, ..., `_99`): when HA's
+          #   entity registry collides on entity_id, it appends `_N`.
+          #   The real, primary library sensor never has a trailing
+          #   underscore-number; only orphans do. The exclusion glob
+          #   `sensor.plex_*_library_*_[0-9]*` catches them.
           - type: custom:auto-entities
             card:
               type: entities
@@ -192,6 +207,10 @@ views:
                 - entity_id: sensor.plex_active_client_ids
                 - entity_id: sensor.plex_total_bandwidth_mbps
                 - entity_id: sensor.plex_server_online
+                # Doubled-prefix orphans (re-added Plex integration)
+                - entity_id: sensor.plex_*_plex_*_library_*
+                # Numeric-suffix orphans (entity_id collisions)
+                - entity_id: /^sensor\.plex_.+_library_.+_\d+$/
             sort:
               method: name
             else:

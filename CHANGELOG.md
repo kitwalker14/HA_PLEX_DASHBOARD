@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.3] - 2026-04-22
+
+### Changed
+- **Libraries section now hides orphaned Plex library sensors.** When a
+  Plex Media Server integration is removed and re-added, HA's entity
+  registry can leave behind stale rows that produce two patterns of
+  duplicate entity_ids: doubled-prefix
+  (`sensor.plex_<slug>_plex_<slug>_library_*`) and numeric-suffix
+  (`sensor.plex_<slug>_library_<lib>_2` ... `_99`). The dashboard's
+  Libraries `auto-entities` filter now excludes both patterns so users
+  see one clean row per library out of the box, regardless of how many
+  orphans linger in the entity registry.
+
+### Added
+- **Deployment-health Repair surfaces orphan library sensors.** A new
+  finding reports the orphan count and tells the user how to clean
+  them via Settings → Devices & Services → Entities. The dashboard
+  works fine without cleanup, but the orphans clutter the entity
+  registry so they're worth removing.
+
 ## [2.2.2] - 2026-04-22
 
 ### Fixed

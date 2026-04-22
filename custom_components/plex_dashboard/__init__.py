@@ -551,6 +551,31 @@ async def _async_check_deployment_health(
             "empty until at least one is enabled."
         )
 
+    # 2b) Orphan library sensors from re-added Plex integrations.
+    # The dashboard now filters these out client-side (doubled-prefix +
+    # numeric-suffix excludes), but they still clutter Developer Tools
+    # and the entity registry. Surface a finding so the user knows.
+    import re as _re
+    orphan_double = [
+        e for e in library_sensors
+        if _re.match(r"^sensor\.plex_[^_]+(?:_[^_]+)*_plex_", e)
+    ]
+    orphan_numeric = [
+        e for e in library_sensors
+        if _re.match(r"^sensor\.plex_.+_library_.+_\d+$", e)
+    ]
+    orphans = set(orphan_double) | set(orphan_numeric)
+    if orphans:
+        findings.append(
+            f"- **{len(orphans)} orphaned Plex library sensor(s) detected** "
+            "(left over from a re-added Plex integration -- entities "
+            "like `sensor.plex_<slug>_plex_<slug>_library_*` or with "
+            "numeric suffixes `_2`/`_3`/...). The dashboard hides them "
+            "automatically, but to clean them up: **Settings → Devices "
+            "& Services → ⋮ → Entities**, filter `library`, select the "
+            "duplicates, and Delete."
+        )
+
     # 3) Optional integrations (informational only)
     if hass.states.get("sensor.tautulli_bandwidth_total") is None:
         findings.append(
