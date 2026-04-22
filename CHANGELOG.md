@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-04-22
+
+### Fixed
+- **Recently Added cards (New Movies / New Episodes / New Music) no
+  longer render as empty boxes.** The previous implementation relied
+  on three template sensors that filtered the legacy unified
+  `plex_recently_added` sensor by inspecting `runtime` / `tmdb_id` /
+  `genres` attributes. The current `plex_recently_added` HACS
+  integration (v0.6+) ships separate per-type sensors out of the box
+  (`*_recently_added_movie`, `_show`, `_artist`) and no longer exposes
+  those classification attributes, so the heuristic always produced
+  empty results.
+
+### Changed
+- **Three new typed config-flow fields** replace the single
+  `recently_added_sensor` field: **Movies sensor**, **TV / Shows
+  sensor**, **Music / Artist sensor**. The integration auto-detects
+  candidates by entity-id suffix (`_movie` / `_show` / `_artist`) and
+  presents them as dropdowns in the config and options flows. Free-text
+  fallback is preserved for non-standard naming.
+- **Dashboard YAML** now points each `upcoming-media-card` directly at
+  the user-selected typed sensor via placeholder substitution
+  (`PLEX_RECENTLY_ADDED_{MOVIES,TV,MUSIC}_SENSOR`). Each card is
+  wrapped in `auto-entities` with an `else:` markdown fallback so a
+  missing sensor (e.g. a music-only Plex server with no movies sensor)
+  collapses to a setup hint instead of an empty progress bar.
+- **Bundled package YAML** drops the three heuristic template sensors
+  (`sensor.plex_recently_added_movies` / `_tv` / `_music`). They were
+  ineffective on plex_recently_added v0.6+ and are no longer needed
+  now that the dashboard reads the typed source sensors directly.
+- **Deployment-health Repair** now validates each of the three typed
+  sensors independently and lists which specific cards will be empty,
+  with a per-bucket suggestion of detected candidate entity-ids.
+
+### Backward compatibility
+- Existing config entries that still carry the legacy
+  `recently_added_sensor` field continue to load without error -- the
+  field is silently ignored. The constants `CONF_RECENTLY_ADDED_SENSOR`
+  and `DEFAULT_RECENTLY_ADDED_SENSOR` remain in `const.py` for the same
+  reason (no migration required). Re-open **Settings → Devices &
+  Services → Plex Dashboard → Configure** to pick the per-type sensors
+  from the auto-detected dropdowns; then toggle **Reset dashboard to
+  bundled version** to pick up the new dashboard YAML on the next reload.
+
 ## [2.2.5] - 2026-04-22
 
 ### Changed

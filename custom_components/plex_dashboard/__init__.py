@@ -60,7 +60,9 @@ from .const import (
     CONF_INSTALL_PACKAGE,
     CONF_INSTALL_THEME,
     CONF_PLEX_SLUG,
-    CONF_RECENTLY_ADDED_SENSOR,
+    CONF_RECENTLY_ADDED_MOVIES_SENSOR,
+    CONF_RECENTLY_ADDED_MUSIC_SENSOR,
+    CONF_RECENTLY_ADDED_TV_SENSOR,
     CONF_REGISTER_DASHBOARD,
     CONF_RESET_DASHBOARD,
     DASHBOARD_FILENAME,
@@ -71,13 +73,17 @@ from .const import (
     DEFAULT_DASHBOARD_ICON,
     DEFAULT_DASHBOARD_TITLE,
     DEFAULT_DASHBOARD_URL_PATH,
-    DEFAULT_RECENTLY_ADDED_SENSOR,
+    DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR,
+    DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR,
+    DEFAULT_RECENTLY_ADDED_TV_SENSOR,
     DOMAIN,
     HACS_DEEP_LINK,
     PACKAGE_FILENAME,
     PACKAGE_OUTPUT_NAME,
     PACKAGES_OUTPUT_DIR,
-    PLACEHOLDER_RECENTLY_ADDED,
+    PLACEHOLDER_RECENTLY_ADDED_MOVIES,
+    PLACEHOLDER_RECENTLY_ADDED_MUSIC,
+    PLACEHOLDER_RECENTLY_ADDED_TV,
     PLACEHOLDER_SLUG,
     REQUIRED_FRONTEND_CARDS,
     THEME_FILENAME,
@@ -167,14 +173,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     install_package: bool = data.get(CONF_INSTALL_PACKAGE, True)
     register_dashboard: bool = data.get(CONF_REGISTER_DASHBOARD, True)
     url_path: str = data.get(CONF_DASHBOARD_URL_PATH, DEFAULT_DASHBOARD_URL_PATH)
-    recently_added_sensor: str = (
-        data.get(CONF_RECENTLY_ADDED_SENSOR) or DEFAULT_RECENTLY_ADDED_SENSOR
+    movies_sensor: str = (
+        data.get(CONF_RECENTLY_ADDED_MOVIES_SENSOR)
+        or DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR
+    )
+    tv_sensor: str = (
+        data.get(CONF_RECENTLY_ADDED_TV_SENSOR) or DEFAULT_RECENTLY_ADDED_TV_SENSOR
+    )
+    music_sensor: str = (
+        data.get(CONF_RECENTLY_ADDED_MUSIC_SENSOR)
+        or DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR
     )
 
     config_dir = Path(hass.config.path())
     substitutions = {
         PLACEHOLDER_SLUG: slug,
-        PLACEHOLDER_RECENTLY_ADDED: recently_added_sensor,
+        PLACEHOLDER_RECENTLY_ADDED_MOVIES: movies_sensor,
+        PLACEHOLDER_RECENTLY_ADDED_TV: tv_sensor,
+        PLACEHOLDER_RECENTLY_ADDED_MUSIC: music_sensor,
     }
 
     # ---- Install YAML files (off-loop because of disk I/O) -----------------
@@ -655,34 +671,65 @@ async def _async_check_deployment_health(
         )
 
     # 3) Optional integrations (informational only)
-    ra_sensor = (
-        entry.data.get(CONF_RECENTLY_ADDED_SENSOR)
-        or entry.options.get(CONF_RECENTLY_ADDED_SENSOR)
-        or DEFAULT_RECENTLY_ADDED_SENSOR
-    )
-    ra_state = hass.states.get(ra_sensor)
-    if ra_state is None or not isinstance(ra_state.attributes.get("data"), list):
-        # Detect any other candidate to suggest in the message.
-        candidates = sorted(
+    #
+    # Recently Added: validate each of the three per-type sensors
+    # independently. plex_recently_added v0.6.x ships separate sensors
+    # per media type, and any one of them being missing is worth
+    # surfacing -- a music-only Plex server with no movies sensor is
+    # legitimate, but the user should know which card will be empty.
+    typed_ra: list[tuple[str, str, str]] = [
+        (
+            "Movies",
+            entry.data.get(CONF_RECENTLY_ADDED_MOVIES_SENSOR)
+            or entry.options.get(CONF_RECENTLY_ADDED_MOVIES_SENSOR)
+            or DEFAULT_RECENTLY_ADDED_MOVIES_SENSOR,
+            "_movie",
+        ),
+        (
+            "TV episodes",
+            entry.data.get(CONF_RECENTLY_ADDED_TV_SENSOR)
+            or entry.options.get(CONF_RECENTLY_ADDED_TV_SENSOR)
+            or DEFAULT_RECENTLY_ADDED_TV_SENSOR,
+            "_show",
+        ),
+        (
+            "Music",
+            entry.data.get(CONF_RECENTLY_ADDED_MUSIC_SENSOR)
+            or entry.options.get(CONF_RECENTLY_ADDED_MUSIC_SENSOR)
+            or DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR,
+            "_artist",
+        ),
+    ]
+    missing_ra: list[tuple[str, str, str]] = []
+    for label, eid, suffix in typed_ra:
+        st = hass.states.get(eid)
+        if st is None or not isinstance(st.attributes.get("data"), list):
+            missing_ra.append((label, eid, suffix))
+
+    if missing_ra:
+        # Detect any candidate sensors so we can suggest them.
+        all_candidates = sorted(
             s.entity_id
             for s in hass.states.async_all("sensor")
             if "recently_added" in s.entity_id
             and isinstance(s.attributes.get("data"), list)
         )
-        hint = (
-            f" Detected candidate(s): `{', '.join(candidates)}`."
-            if candidates
-            else ""
-        )
-        findings.append(
-            f"- _Optional:_ **Recently Added source sensor** `{ra_sensor}` "
-            "not found or has no `data` attribute — the New Movies / "
-            "New Episodes / New Music cards will be empty. Install the "
-            "[plex_recently_added](https://github.com/custom-components/"
-            "sensor.plex_recently_added) HACS integration, then open "
-            "**Settings → Devices & Services → Plex Dashboard → "
-            f"Configure** to point at the correct sensor.{hint}"
-        )
+        for label, eid, suffix in missing_ra:
+            suggested = [c for c in all_candidates if c.endswith(suffix)]
+            hint = (
+                f" Detected `{suffix}` candidate(s): `{', '.join(suggested)}`."
+                if suggested
+                else ""
+            )
+            findings.append(
+                f"- _Optional:_ **Recently Added — {label}** sensor `{eid}` "
+                "not found or has no `data` attribute — that card will be "
+                "empty. Install/upgrade the [plex_recently_added]"
+                "(https://github.com/custom-components/sensor.plex_recently_added) "
+                "HACS integration (v0.6+ ships per-type sensors), then open "
+                "**Settings → Devices & Services → Plex Dashboard → "
+                f"Configure** to point at the right entity.{hint}"
+            )
 
     if hass.states.get("sensor.tautulli_bandwidth_total") is None:
         findings.append(

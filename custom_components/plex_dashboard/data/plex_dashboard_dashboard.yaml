@@ -354,38 +354,83 @@ views:
 
           # Movies / TV / Music recently added.
           #
-          # These sensors are created by plex_dashboard_package.yaml as
-          # filtered views of the `plex_recently_added` HACS integration's
-          # unified source sensor (configured via the integration's config
-          # flow -- defaults to sensor.plex_recently_added, but must be
-          # changed to sensor.plex_plex_recently_added or similar for Plex
-          # servers with names that slugify with a "plex_" prefix, e.g.
-          # a server named `plex.example.com`).
+          # Since v2.3.0 these point directly at the per-type sensors
+          # published by the `plex_recently_added` HACS integration
+          # (v0.6+: `*_recently_added_movie`, `_show`, `_artist`). The
+          # exact entity_ids are picked in the integration's config flow
+          # (with auto-detection by suffix) and substituted into the
+          # placeholders below at install time.
           #
-          # If the source sensor is missing (HACS integration not
-          # installed) the filter sensors return empty lists and
-          # upcoming-media-card renders an empty progress bar -- same
-          # graceful degradation as the Radarr/Sonarr cards.
-          - type: custom:upcoming-media-card
-            entity: sensor.plex_recently_added_movies
-            title: New Movies
-            image_style: poster
-            max: 6
-            date: mmdd
+          # Each card is wrapped in `auto-entities` so that if the
+          # selected sensor is missing (integration not installed, wrong
+          # entity_id, or the user's Plex server has no media of that
+          # type), the card collapses cleanly with a markdown hint
+          # instead of rendering as an empty progress bar.
+          - type: custom:auto-entities
+            card:
+              type: vertical-stack
+            card_param: cards
+            filter:
+              include:
+                - entity_id: PLEX_RECENTLY_ADDED_MOVIES_SENSOR
+                  options:
+                    type: custom:upcoming-media-card
+                    entity: this.entity_id
+                    title: New Movies
+                    image_style: poster
+                    max: 6
+                    date: mmdd
+            else:
+              type: markdown
+              content: >-
+                _New Movies sensor not found._<br>
+                Install [plex_recently_added](https://github.com/custom-components/sensor.plex_recently_added)
+                v0.6+ and pick the movies sensor in **Settings → Devices &
+                Services → Plex Dashboard → Configure**.
 
-          - type: custom:upcoming-media-card
-            entity: sensor.plex_recently_added_tv
-            title: New Episodes
-            image_style: poster
-            max: 6
-            date: mmdd
+          - type: custom:auto-entities
+            card:
+              type: vertical-stack
+            card_param: cards
+            filter:
+              include:
+                - entity_id: PLEX_RECENTLY_ADDED_TV_SENSOR
+                  options:
+                    type: custom:upcoming-media-card
+                    entity: this.entity_id
+                    title: New Episodes
+                    image_style: poster
+                    max: 6
+                    date: mmdd
+            else:
+              type: markdown
+              content: >-
+                _New Episodes sensor not found._<br>
+                Install [plex_recently_added](https://github.com/custom-components/sensor.plex_recently_added)
+                v0.6+ and pick the shows sensor in **Settings → Devices &
+                Services → Plex Dashboard → Configure**.
 
-          - type: custom:upcoming-media-card
-            entity: sensor.plex_recently_added_music
-            title: New Music
-            image_style: poster
-            max: 6
-            date: mmdd
+          - type: custom:auto-entities
+            card:
+              type: vertical-stack
+            card_param: cards
+            filter:
+              include:
+                - entity_id: PLEX_RECENTLY_ADDED_MUSIC_SENSOR
+                  options:
+                    type: custom:upcoming-media-card
+                    entity: this.entity_id
+                    title: New Music
+                    image_style: poster
+                    max: 6
+                    date: mmdd
+            else:
+              type: markdown
+              content: >-
+                _New Music sensor not found._<br>
+                Install [plex_recently_added](https://github.com/custom-components/sensor.plex_recently_added)
+                v0.6+ and pick the artist sensor in **Settings → Devices &
+                Services → Plex Dashboard → Configure**.
 
   # ===========================================================================
   # SECONDARY VIEW – Coming Soon (Sonarr / Radarr)

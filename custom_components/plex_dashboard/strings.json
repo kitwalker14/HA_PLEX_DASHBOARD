@@ -7,6 +7,9 @@
         "data": {
           "plex_slug": "Plex server slug (e.g. 'myplex' from sensor.plex_myplex)",
           "dashboard_url_path": "Dashboard URL path",
+          "recently_added_movies_sensor": "Recently Added — Movies sensor (from plex_recently_added v0.6+)",
+          "recently_added_tv_sensor": "Recently Added — TV / Shows sensor (from plex_recently_added v0.6+)",
+          "recently_added_music_sensor": "Recently Added — Music / Artist sensor (from plex_recently_added v0.6+)",
           "install_theme": "Install Plex Dark theme to /config/themes/",
           "install_package": "Install package to /config/packages/",
           "register_dashboard": "Register Lovelace dashboard automatically"
@@ -28,6 +31,9 @@
         "data": {
           "plex_slug": "Plex server slug",
           "dashboard_url_path": "Dashboard URL path",
+          "recently_added_movies_sensor": "Recently Added — Movies sensor",
+          "recently_added_tv_sensor": "Recently Added — TV / Shows sensor",
+          "recently_added_music_sensor": "Recently Added — Music / Artist sensor",
           "install_theme": "Re-install Plex Dark theme",
           "install_package": "Re-install package",
           "register_dashboard": "Re-register Lovelace dashboard",

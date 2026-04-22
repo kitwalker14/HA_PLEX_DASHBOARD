@@ -109,120 +109,16 @@ template:
           {% set s = states('sensor.plex_PLEX_SERVER_NAME') %}
           {{ 'on' if s not in ['unavailable','unknown','none', None] else 'off' }}
 
-      # ---------- Recently Added: filtered by media type ----------
+      # ---------- Recently Added ----------
       #
-      # The optional `plex_recently_added` HACS integration publishes a
-      # single sensor (entity_id is substituted at install time via the
-      # integration's config flow). Its `data` attribute is a list of
-      # items covering ALL media types -- movies, TV episodes, music
-      # videos, YouTube clips, etc. The first list entry is always a
-      # "header" template entry (no `airdate`) which we skip.
-      #
-      # upcoming-media-card reads the `data` attribute directly, so we
-      # expose three filtered views as template sensors. The state is
-      # just a count; the card uses the `data` attribute.
-      #
-      # Classification heuristics (no media_type field exists in the
-      # source data):
-      #   TV     = `episode` is a non-empty string
-      #   Movies = no episode AND has tmdb_id AND has genres AND runtime >= 40
-      #   Music  = everything else (music videos, concerts, short clips,
-      #            demos, YouTube rips -- typically short runtime, no
-      #            tmdb_id, empty genres)
-      #
-      # If the source sensor is missing (integration not installed) each
-      # filter sensor returns 0 / empty list and upcoming-media-card
-      # renders an empty progress bar -- same graceful degradation as the
-      # Radarr/Sonarr cards in the Coming Soon view.
-      - name: "Plex Recently Added Movies"
-        unique_id: plex_recently_added_movies
-        icon: mdi:movie-open
-        state: >-
-          {%- set src = state_attr('PLEX_RECENTLY_ADDED_SENSOR','data') or [] -%}
-          {%- set ns = namespace(c=0) -%}
-          {%- for i in src if i.airdate is defined -%}
-            {%- set ep = i.episode | default('') -%}
-            {%- set tmdb = i.tmdb_id | default(none) -%}
-            {%- set genres = i.genres | default('') -%}
-            {%- set runtime = i.runtime | default(0) | int(0) -%}
-            {%- if ep == '' and tmdb and genres and runtime >= 40 -%}
-              {%- set ns.c = ns.c + 1 -%}
-            {%- endif -%}
-          {%- endfor -%}
-          {{ ns.c }}
-        attributes:
-          data: >-
-            {%- set src = state_attr('PLEX_RECENTLY_ADDED_SENSOR','data') or [] -%}
-            {%- set header = (src | selectattr('airdate','undefined') | list) -%}
-            {%- set items = [] -%}
-            {%- set ns = namespace(items=[]) -%}
-            {%- for i in src if i.airdate is defined -%}
-              {%- set ep = i.episode | default('') -%}
-              {%- set tmdb = i.tmdb_id | default(none) -%}
-              {%- set genres = i.genres | default('') -%}
-              {%- set runtime = i.runtime | default(0) | int(0) -%}
-              {%- if ep == '' and tmdb and genres and runtime >= 40 -%}
-                {%- set ns.items = ns.items + [i] -%}
-              {%- endif -%}
-            {%- endfor -%}
-            {{ header + ns.items }}
-
-      - name: "Plex Recently Added TV"
-        unique_id: plex_recently_added_tv
-        icon: mdi:television-classic
-        state: >-
-          {%- set src = state_attr('PLEX_RECENTLY_ADDED_SENSOR','data') or [] -%}
-          {%- set ns = namespace(c=0) -%}
-          {%- for i in src if i.airdate is defined -%}
-            {%- if (i.episode | default('')) != '' -%}
-              {%- set ns.c = ns.c + 1 -%}
-            {%- endif -%}
-          {%- endfor -%}
-          {{ ns.c }}
-        attributes:
-          data: >-
-            {%- set src = state_attr('PLEX_RECENTLY_ADDED_SENSOR','data') or [] -%}
-            {%- set header = (src | selectattr('airdate','undefined') | list) -%}
-            {%- set ns = namespace(items=[]) -%}
-            {%- for i in src if i.airdate is defined -%}
-              {%- if (i.episode | default('')) != '' -%}
-                {%- set ns.items = ns.items + [i] -%}
-              {%- endif -%}
-            {%- endfor -%}
-            {{ header + ns.items }}
-
-      - name: "Plex Recently Added Music"
-        unique_id: plex_recently_added_music
-        icon: mdi:music
-        state: >-
-          {%- set src = state_attr('PLEX_RECENTLY_ADDED_SENSOR','data') or [] -%}
-          {%- set ns = namespace(c=0) -%}
-          {%- for i in src if i.airdate is defined -%}
-            {%- set ep = i.episode | default('') -%}
-            {%- set tmdb = i.tmdb_id | default(none) -%}
-            {%- set genres = i.genres | default('') -%}
-            {%- set runtime = i.runtime | default(0) | int(0) -%}
-            {#- Music/other = not TV, and not a 'real' movie. -#}
-            {%- if ep == '' and not (tmdb and genres and runtime >= 40) -%}
-              {%- set ns.c = ns.c + 1 -%}
-            {%- endif -%}
-          {%- endfor -%}
-          {{ ns.c }}
-        attributes:
-          data: >-
-            {%- set src = state_attr('PLEX_RECENTLY_ADDED_SENSOR','data') or [] -%}
-            {%- set header = (src | selectattr('airdate','undefined') | list) -%}
-            {%- set ns = namespace(items=[]) -%}
-            {%- for i in src if i.airdate is defined -%}
-              {%- set ep = i.episode | default('') -%}
-              {%- set tmdb = i.tmdb_id | default(none) -%}
-              {%- set genres = i.genres | default('') -%}
-              {%- set runtime = i.runtime | default(0) | int(0) -%}
-              {%- if ep == '' and not (tmdb and genres and runtime >= 40) -%}
-                {%- set ns.items = ns.items + [i] -%}
-              {%- endif -%}
-            {%- endfor -%}
-            {{ header + ns.items }}
+      # Removed in v2.3.0: the three heuristic template sensors that
+      # filtered the legacy unified `plex_recently_added` sensor by
+      # inspecting `runtime` / `tmdb_id` / `genres` attributes are gone.
+      # The current `plex_recently_added` HACS integration (v0.6+) ships
+      # separate per-type sensors out of the box (`*_recently_added_movie`,
+      # `_show`, `_artist`), and the dashboard now points
+      # `upcoming-media-card` directly at the user-selected sensors via
+      # config-flow placeholders. No template-sensor indirection needed.
 
   # -------- Per-stream binary sensor (handy for automations) --------
   - binary_sensor:
