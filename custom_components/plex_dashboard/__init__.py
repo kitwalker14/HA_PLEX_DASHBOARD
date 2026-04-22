@@ -185,6 +185,65 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         or DEFAULT_RECENTLY_ADDED_MUSIC_SENSOR
     )
 
+    # Auto-resolve any typed Recently Added sensor whose configured value
+    # doesn't resolve to a real entity exposing a `data` list attribute.
+    # This lets the dashboard "just work" out of the box: on a fresh
+    # install the user only has to pick their Plex slug; on an upgrade
+    # from v2.2.x (where the legacy unified sensor was used) the per-type
+    # defaults likely won't match the user's actual entity_ids (e.g.
+    # doubled-prefix variants like sensor.plex_plex_recently_added_movie),
+    # so we sniff the state machine for a candidate ending in the right
+    # suffix and substitute it transparently.
+    #
+    # Resolution is silent and we persist the discovered values back into
+    # entry.data so the next setup is fast (no re-resolution) and the
+    # Configure dialog reflects what's actually in use.
+    auto_resolved: dict[str, str] = {}
+
+    def _has_data_attr(eid: str) -> bool:
+        st = hass.states.get(eid)
+        return st is not None and isinstance(st.attributes.get("data"), list)
+
+    def _autopick(suffix: str) -> str | None:
+        for state in hass.states.async_all("sensor"):
+            if not state.entity_id.endswith(suffix):
+                continue
+            if "recently_added" not in state.entity_id:
+                continue
+            if isinstance(state.attributes.get("data"), list):
+                return state.entity_id
+        return None
+
+    for key, current_value, suffix in (
+        (CONF_RECENTLY_ADDED_MOVIES_SENSOR, movies_sensor, "_movie"),
+        (CONF_RECENTLY_ADDED_TV_SENSOR, tv_sensor, "_show"),
+        (CONF_RECENTLY_ADDED_MUSIC_SENSOR, music_sensor, "_artist"),
+    ):
+        if _has_data_attr(current_value):
+            continue
+        picked = _autopick(suffix)
+        if picked and picked != current_value:
+            auto_resolved[key] = picked
+            _LOGGER.info(
+                "Plex Dashboard: auto-resolved %s '%s' -> '%s' "
+                "(configured value not found in state machine)",
+                key, current_value, picked,
+            )
+
+    if auto_resolved:
+        movies_sensor = auto_resolved.get(
+            CONF_RECENTLY_ADDED_MOVIES_SENSOR, movies_sensor
+        )
+        tv_sensor = auto_resolved.get(CONF_RECENTLY_ADDED_TV_SENSOR, tv_sensor)
+        music_sensor = auto_resolved.get(
+            CONF_RECENTLY_ADDED_MUSIC_SENSOR, music_sensor
+        )
+        # Persist so next reload skips this work and Configure shows the
+        # resolved values. Merge into entry.data only -- options should
+        # remain user-controlled.
+        new_data = {**entry.data, **auto_resolved}
+        hass.config_entries.async_update_entry(entry, data=new_data)
+
     config_dir = Path(hass.config.path())
     substitutions = {
         PLACEHOLDER_SLUG: slug,

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-04-22
+
+### Fixed
+- **Recently Added cards now auto-configure on first run / upgrade.**
+  v2.3.0 introduced three typed sensor fields with sensible defaults
+  (`sensor.plex_recently_added_movie` / `_show` / `_artist`), but
+  installs whose Plex server name slugifies to a doubled-prefix
+  (e.g. `sensor.plex_plex_recently_added_movie`) or any other
+  non-default form would render the dashboard's `else:` markdown
+  fallback for every card after upgrading from v2.2.x.
+- `async_setup_entry` now sniffs the state machine during setup: for
+  any of the three typed keys whose configured value doesn't resolve
+  to a sensor exposing a `data` list attribute, it picks the first
+  `sensor.*recently_added*_{movie,show,artist}` that does, persists
+  the resolved value back into `entry.data`, and logs the substitution
+  at INFO level. The Configure dialog continues to reflect (and let
+  the user override) whatever is in use.
+
 ## [2.3.0] - 2026-04-22
 
 ### Fixed
