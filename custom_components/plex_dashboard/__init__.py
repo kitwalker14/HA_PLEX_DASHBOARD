@@ -385,6 +385,7 @@ async def _async_register_dashboard(
             translation_placeholders={
                 "error": _LOVELACE_IMPORT_ERROR or "unknown",
                 "url_path": url_path,
+                "issue_url": "https://github.com/kitwalker14/HA_PLEX_DASHBOARD/issues",
             },
         )
         _LOGGER.error(

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-04-22
+
+### Fixed
+- **Hassfest CI validation now passes.** The Repair issue description
+  for `lovelace_internals_unavailable` contained a literal GitHub URL,
+  which Hassfest rejects ("the string should not contain URLs, please
+  use description placeholders instead"). The URL is now passed via a
+  new `{issue_url}` translation placeholder; user-visible text is
+  unchanged.
+
 ## [2.3.1] - 2026-04-22
 
 ### Fixed

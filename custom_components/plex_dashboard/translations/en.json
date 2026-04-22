@@ -57,7 +57,7 @@
     },
     "lovelace_internals_unavailable": {
       "title": "Plex Dashboard: cannot auto-register dashboard",
-      "description": "Plex Dashboard could not auto-register the Lovelace dashboard because the Home Assistant Lovelace storage internals it uses changed in this HA version.\n\n**Error:** `{error}`\n\nThe dashboard YAML was still written to `/config/dashboards/plex_dashboard.yaml`, so you can register it manually:\n\n1. **Settings → Dashboards → Add Dashboard → From YAML**\n2. URL: `{url_path}`, Title: `Plex`, Icon: `mdi:plex`\n3. Filename: `dashboards/plex_dashboard.yaml`\n\nPlease open an issue at https://github.com/kitwalker14/HA_PLEX_DASHBOARD/issues with your HA version so we can restore auto-registration."
+      "description": "Plex Dashboard could not auto-register the Lovelace dashboard because the Home Assistant Lovelace storage internals it uses changed in this HA version.\n\n**Error:** `{error}`\n\nThe dashboard YAML was still written to `/config/dashboards/plex_dashboard.yaml`, so you can register it manually:\n\n1. **Settings → Dashboards → Add Dashboard → From YAML**\n2. URL: `{url_path}`, Title: `Plex`, Icon: `mdi:plex`\n3. Filename: `dashboards/plex_dashboard.yaml`\n\nPlease open an issue at {issue_url} with your HA version so we can restore auto-registration."
     }
   }
 }
