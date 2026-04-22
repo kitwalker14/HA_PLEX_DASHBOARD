@@ -31,6 +31,7 @@ from .const import (
     CONF_INSTALL_PACKAGE,
     CONF_INSTALL_THEME,
     CONF_PLEX_SLUG,
+    CONF_RECENTLY_ADDED_SENSOR,
     CONF_REGISTER_DASHBOARD,
     CONF_RESET_DASHBOARD,
     DASHBOARD_FILENAME,
@@ -41,6 +42,7 @@ from .const import (
     DEFAULT_DASHBOARD_ICON,
     DEFAULT_DASHBOARD_TITLE,
     DEFAULT_DASHBOARD_URL_PATH,
+    DEFAULT_RECENTLY_ADDED_SENSOR,
     DOMAIN,
     HACS_DEEP_LINK,
     HELPERS_INPUT_BOOLEAN,
@@ -48,6 +50,7 @@ from .const import (
     PACKAGE_FILENAME,
     PACKAGE_OUTPUT_NAME,
     PACKAGES_OUTPUT_DIR,
+    PLACEHOLDER_RECENTLY_ADDED,
     PLACEHOLDER_SLUG,
     REQUIRED_FRONTEND_CARDS,
     THEME_FILENAME,
@@ -121,9 +124,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     register_dashboard: bool = data.get(CONF_REGISTER_DASHBOARD, True)
     create_helpers: bool = data.get(CONF_CREATE_HELPERS, True)
     url_path: str = data.get(CONF_DASHBOARD_URL_PATH, DEFAULT_DASHBOARD_URL_PATH)
+    recently_added_sensor: str = (
+        data.get(CONF_RECENTLY_ADDED_SENSOR) or DEFAULT_RECENTLY_ADDED_SENSOR
+    )
 
     config_dir = Path(hass.config.path())
-    substitutions = {PLACEHOLDER_SLUG: slug}
+    substitutions = {
+        PLACEHOLDER_SLUG: slug,
+        PLACEHOLDER_RECENTLY_ADDED: recently_added_sensor,
+    }
 
     # ---- Install YAML files (off-loop because of disk I/O) -----------------
     def _do_file_install() -> dict[str, bool]:
@@ -577,6 +586,35 @@ async def _async_check_deployment_health(
         )
 
     # 3) Optional integrations (informational only)
+    ra_sensor = (
+        entry.data.get(CONF_RECENTLY_ADDED_SENSOR)
+        or entry.options.get(CONF_RECENTLY_ADDED_SENSOR)
+        or DEFAULT_RECENTLY_ADDED_SENSOR
+    )
+    ra_state = hass.states.get(ra_sensor)
+    if ra_state is None or not isinstance(ra_state.attributes.get("data"), list):
+        # Detect any other candidate to suggest in the message.
+        candidates = sorted(
+            s.entity_id
+            for s in hass.states.async_all("sensor")
+            if "recently_added" in s.entity_id
+            and isinstance(s.attributes.get("data"), list)
+        )
+        hint = (
+            f" Detected candidate(s): `{', '.join(candidates)}`."
+            if candidates
+            else ""
+        )
+        findings.append(
+            f"- _Optional:_ **Recently Added source sensor** `{ra_sensor}` "
+            "not found or has no `data` attribute — the New Movies / "
+            "New Episodes / New Music cards will be empty. Install the "
+            "[plex_recently_added](https://github.com/custom-components/"
+            "sensor.plex_recently_added) HACS integration, then open "
+            "**Settings → Devices & Services → Plex Dashboard → "
+            f"Configure** to point at the correct sensor.{hint}"
+        )
+
     if hass.states.get("sensor.tautulli_bandwidth_total") is None:
         findings.append(
             "- _Optional:_ **Tautulli** integration not detected — bandwidth "

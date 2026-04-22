@@ -18,15 +18,40 @@ from .const import (
     CONF_INSTALL_PACKAGE,
     CONF_INSTALL_THEME,
     CONF_PLEX_SLUG,
+    CONF_RECENTLY_ADDED_SENSOR,
     CONF_REGISTER_DASHBOARD,
     CONF_RESET_DASHBOARD,
     DEFAULT_DASHBOARD_URL_PATH,
+    DEFAULT_RECENTLY_ADDED_SENSOR,
     DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 PLEX_SENSOR_RE = re.compile(r"^sensor\.plex_(?!library_|recently_added_)([a-z0-9_]+)$")
+RECENTLY_ADDED_RE = re.compile(r"^sensor\..*recently_added.*$")
+
+
+def _detect_recently_added_sensors(hass) -> list[str]:
+    """Return candidate `plex_recently_added` source sensors.
+
+    The HACS `plex_recently_added` integration creates a single sensor
+    whose exact entity_id depends on the `name:` option and the user's
+    Plex server slug. Common variants: `sensor.plex_recently_added`,
+    `sensor.plex_plex_recently_added`, `sensor.<name>_recently_added`.
+    We surface anything matching `sensor.*recently_added*` that has a
+    `data` attribute (which is how upcoming-media-card consumes them).
+    """
+    candidates: list[str] = []
+    for state in hass.states.async_all("sensor"):
+        if not RECENTLY_ADDED_RE.match(state.entity_id):
+            continue
+        # Must have the list-of-items `data` attribute that
+        # upcoming-media-card reads. A bare sensor.*recently_added* without
+        # `data` is not useful here.
+        if isinstance(state.attributes.get("data"), list):
+            candidates.append(state.entity_id)
+    return sorted(candidates)
 
 
 def _detect_plex_slugs(hass) -> list[str]:
@@ -103,6 +128,11 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                             CONF_DASHBOARD_URL_PATH, DEFAULT_DASHBOARD_URL_PATH
                         ).strip()
                         or DEFAULT_DASHBOARD_URL_PATH,
+                        CONF_RECENTLY_ADDED_SENSOR: (
+                            user_input.get(CONF_RECENTLY_ADDED_SENSOR)
+                            or DEFAULT_RECENTLY_ADDED_SENSOR
+                        ).strip()
+                        or DEFAULT_RECENTLY_ADDED_SENSOR,
                         CONF_INSTALL_THEME: user_input.get(CONF_INSTALL_THEME, True),
                         CONF_INSTALL_PACKAGE: user_input.get(
                             CONF_INSTALL_PACKAGE, True
@@ -128,6 +158,22 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
         else:
             slug_field = selector.TextSelector()
 
+        # Recently-added sensor field: dropdown of detected candidates with
+        # free-text fallback, default to first candidate (or the canonical
+        # default if no sensors were detected yet).
+        ra_candidates = _detect_recently_added_sensors(self.hass)
+        ra_default = ra_candidates[0] if ra_candidates else DEFAULT_RECENTLY_ADDED_SENSOR
+        if ra_candidates:
+            ra_field = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=ra_candidates,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                    custom_value=True,
+                )
+            )
+        else:
+            ra_field = selector.TextSelector()
+
         schema = vol.Schema(
             {
                 vol.Required(
@@ -136,6 +182,9 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_DASHBOARD_URL_PATH, default=DEFAULT_DASHBOARD_URL_PATH
                 ): str,
+                vol.Optional(
+                    CONF_RECENTLY_ADDED_SENSOR, default=ra_default
+                ): ra_field,
                 vol.Optional(CONF_INSTALL_THEME, default=True): bool,
                 vol.Optional(CONF_INSTALL_PACKAGE, default=True): bool,
                 vol.Optional(CONF_REGISTER_DASHBOARD, default=True): bool,
@@ -189,6 +238,13 @@ class PlexDashboardOptionsFlow(OptionsFlow):
                     CONF_DASHBOARD_URL_PATH,
                     default=current.get(
                         CONF_DASHBOARD_URL_PATH, DEFAULT_DASHBOARD_URL_PATH
+                    ),
+                ): str,
+                vol.Optional(
+                    CONF_RECENTLY_ADDED_SENSOR,
+                    default=current.get(
+                        CONF_RECENTLY_ADDED_SENSOR,
+                        DEFAULT_RECENTLY_ADDED_SENSOR,
                     ),
                 ): str,
                 vol.Optional(

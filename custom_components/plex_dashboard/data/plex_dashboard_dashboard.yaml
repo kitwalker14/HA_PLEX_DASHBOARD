@@ -353,10 +353,19 @@ views:
                     name: Show
 
           # Movies / TV / Music recently added.
-          # If sensor.plex_recently_added_* doesn't exist, upcoming-media-card
-          # renders an empty progress bar (see Coming Soon view for the
-          # same behavior with sensor.radarr_upcoming_media). Install the
-          # optional `plex_recently_added` HACS integration to populate.
+          #
+          # These sensors are created by plex_dashboard_package.yaml as
+          # filtered views of the `plex_recently_added` HACS integration's
+          # unified source sensor (configured via the integration's config
+          # flow -- defaults to sensor.plex_recently_added, but must be
+          # changed to sensor.plex_plex_recently_added or similar for Plex
+          # servers with names that slugify with a "plex_" prefix, e.g.
+          # a server named `plex.example.com`).
+          #
+          # If the source sensor is missing (HACS integration not
+          # installed) the filter sensors return empty lists and
+          # upcoming-media-card renders an empty progress bar -- same
+          # graceful degradation as the Radarr/Sonarr cards.
           - type: custom:upcoming-media-card
             entity: sensor.plex_recently_added_movies
             title: New Movies
@@ -373,7 +382,7 @@ views:
 
           - type: custom:upcoming-media-card
             entity: sensor.plex_recently_added_music
-            title: New Albums
+            title: New Music
             image_style: poster
             max: 6
             date: mmdd

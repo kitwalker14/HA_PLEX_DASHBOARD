@@ -10,6 +10,12 @@ CONF_INSTALL_THEME = "install_theme"
 CONF_INSTALL_PACKAGE = "install_package"
 CONF_REGISTER_DASHBOARD = "register_dashboard"
 CONF_CREATE_HELPERS = "create_helpers"
+# Entity_id of the optional `plex_recently_added` HACS integration sensor
+# whose `data` attribute feeds the three Recently Added cards. Users with
+# non-default Plex server names (e.g. `plex.lwk.space`) get doubled slugs
+# like `sensor.plex_plex_recently_added`, so this is configurable.
+CONF_RECENTLY_ADDED_SENSOR = "recently_added_sensor"
+DEFAULT_RECENTLY_ADDED_SENSOR = "sensor.plex_recently_added"
 # Options-flow toggle: when True on next reload, force-overwrite the
 # Lovelace storage payload with the bundled YAML, ignoring the
 # "user may have edited it" safety check. Auto-clears after one run.
@@ -40,6 +46,7 @@ DASHBOARD_OUTPUT_NAME = "plex_dashboard.yaml"
 PACKAGE_OUTPUT_NAME = "plex_dashboard.yaml"
 
 PLACEHOLDER_SLUG = "PLEX_SERVER_NAME"
+PLACEHOLDER_RECENTLY_ADDED = "PLEX_RECENTLY_ADDED_SENSOR"
 
 # Required HACS frontend cards (custom: element name -> friendly name + repo).
 # Kept intentionally small: anything that has a built-in equivalent (mushroom,

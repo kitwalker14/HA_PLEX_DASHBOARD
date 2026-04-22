@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.4] - 2026-04-22
+
+### Added
+- **Recently Added cards now display actual media.** Previously the
+  dashboard pointed at `sensor.plex_recently_added_movies` / `_tv` /
+  `_music` -- entities the HACS `plex_recently_added` integration does
+  not create. That integration publishes a single unified sensor whose
+  `data` attribute contains all media types mixed together. The
+  package YAML now ships three template sensors
+  (`sensor.plex_recently_added_movies`, `_tv`, `_music`) that filter
+  the unified source by heuristic:
+  - **TV** = item has a non-empty `episode` field
+  - **Movies** = no episode, has `tmdb_id`, non-empty `genres`, runtime ≥ 40 min
+  - **Music** = everything else (music videos, concerts, short clips,
+    demos, YT rips)
+  Each filtered sensor exposes the same `data` attribute schema
+  `upcoming-media-card` reads, so the three cards now render poster
+  grids with titles, dates, and summaries.
+- **Configurable Recently Added source sensor.** The
+  `plex_recently_added` integration produces different entity_ids
+  depending on the Plex server name (e.g. `sensor.plex_recently_added`
+  for a default name, `sensor.plex_plex_recently_added` for a server
+  named `plex.example.com`). Config flow now includes a "Recently
+  added source sensor" field with auto-detection: any sensor matching
+  `sensor.*recently_added*` with a `data` list attribute is offered in
+  a dropdown. Default: `sensor.plex_recently_added`.
+- **Deployment-health Repair detects missing source sensor.** If the
+  configured source sensor is absent or has no `data` attribute, a new
+  informational finding points the user at the HACS install link and
+  the Configure dialog, and lists any auto-detected candidates.
+
+### Changed
+- Dashboard Recently Added card titled "New Albums" renamed to "New
+  Music" to match the new filter sensor's broader scope (music videos,
+  concerts, YT clips, etc. -- not strictly albums).
+
 ## [2.2.3] - 2026-04-22
 
 ### Changed
