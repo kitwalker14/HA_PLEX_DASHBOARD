@@ -502,17 +502,33 @@ async def _async_check_deployment_health(
                 "sensor.plex_server_online",
             }
         )
-        hint = (
-            f" Detected candidates: `{', '.join(candidates[:5])}`."
-            if candidates
-            else ""
-        )
-        findings.append(
-            f"- **Plex server slug mismatch** — configured slug `{slug}` "
-            f"doesn't match any `sensor.plex_<slug>` entity.{hint} "
-            "Update the slug in **Settings → Devices & Services → "
-            "Plex Dashboard → Configure**."
-        )
+        # Common footgun: user pasted the entity prefix into the slug
+        # field, so the saved slug is `plex_<realslug>` and we ended up
+        # looking for `sensor.plex_plex_<realslug>`. Detect & call out.
+        stripped = slug
+        for prefix in ("sensor.plex_", "sensor.", "plex_"):
+            if stripped.startswith(prefix):
+                stripped = stripped[len(prefix):]
+        if stripped != slug and hass.states.get(f"sensor.plex_{stripped}") is not None:
+            findings.append(
+                f"- **Plex slug has an extra `plex_` prefix.** Configured "
+                f"slug is `{slug}`, but `sensor.plex_{stripped}` exists. "
+                f"Open **Settings → Devices & Services → Plex Dashboard "
+                f"→ Configure** and change the slug to `{stripped}` "
+                "(without the `plex_` prefix)."
+            )
+        else:
+            hint = (
+                f" Detected candidates: `{', '.join(candidates[:5])}`."
+                if candidates
+                else ""
+            )
+            findings.append(
+                f"- **Plex server slug mismatch** — configured slug `{slug}` "
+                f"doesn't match any `sensor.plex_<slug>` entity.{hint} "
+                "Update the slug in **Settings → Devices & Services → "
+                "Plex Dashboard → Configure**."
+            )
 
     # 2) At least one Plex library sensor is exposed.
     library_sensors = [

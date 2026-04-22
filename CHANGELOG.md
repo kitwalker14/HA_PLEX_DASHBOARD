@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-04-22
+
+### Fixed
+- **Slug field accepts `plex_<name>` and `sensor.plex_<name>` forms.**
+  Both the initial config flow and the options-flow re-configure dialog
+  now strip a leading `sensor.plex_` / `sensor.` / `plex_` prefix from
+  the user-entered slug. Previously, pasting `plex_lwk_space` (an easy
+  mistake — the field hint says "e.g. 'myplex' from sensor.plex_myplex"
+  but it's tempting to paste the full prefix) caused the integration to
+  look for `sensor.plex_plex_lwk_space` and fail every entity-existence
+  check, including the `sensor.plex_<slug>` -> server-online template
+  sensor. The new sanitization makes the field robust to all three
+  common pasting patterns.
+
+### Changed
+- **Deployment health Repair detects the extra-`plex_`-prefix case
+  specifically.** When the configured slug is `plex_<X>` and
+  `sensor.plex_<X>` actually exists, the Repair message now calls out
+  the exact fix ("change `plex_lwk_space` to `lwk_space`") instead of
+  the generic "slug mismatch" message.
+
 ## [2.2.0] - 2026-04-22
 
 ### Added

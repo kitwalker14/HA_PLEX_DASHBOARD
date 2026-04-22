@@ -58,6 +58,13 @@ class PlexDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             slug = (user_input.get(CONF_PLEX_SLUG) or "").strip().lower()
+            # Be forgiving: users frequently paste the full entity prefix
+            # (e.g. `sensor.plex_myserver` or `plex_myserver`) instead of
+            # just the slug (`myserver`). Strip those automatically so we
+            # don't end up looking for sensor.plex_plex_myserver.
+            for prefix in ("sensor.plex_", "sensor.", "plex_"):
+                if slug.startswith(prefix):
+                    slug = slug[len(prefix):]
             if not slug:
                 errors[CONF_PLEX_SLUG] = "slug_required"
             elif not re.match(r"^[a-z0-9_]+$", slug):
@@ -141,6 +148,14 @@ class PlexDashboardOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
+            # Same slug-sanitization as the user step: strip any
+            # accidentally-pasted entity prefix so we never end up
+            # with `plex_plex_<slug>`.
+            slug = (user_input.get(CONF_PLEX_SLUG) or "").strip().lower()
+            for prefix in ("sensor.plex_", "sensor.", "plex_"):
+                if slug.startswith(prefix):
+                    slug = slug[len(prefix):]
+            user_input[CONF_PLEX_SLUG] = slug
             return self.async_create_entry(title="", data=user_input)
 
         current = {**self._entry_data, **self._entry_options}
