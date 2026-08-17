@@ -86,16 +86,21 @@ template:
       # ---------- Total bandwidth (from Tautulli, optional) ----------
       # NOTE: We deliberately do NOT set device_class:data_rate because HA's
       # data_rate device class only accepts canonical units (bit/s, Mbit/s,
-      # MB/s, etc.), and "Mbps" is not in that allow-list -- it would make
-      # the gauge card raise a "Configuration error". Plain unit_of_measurement
-      # is sufficient for display in the gauge.
+      # MB/s, etc.), and "Mbps" is not in that allow-list -- it would raise
+      # a "Configuration error" on any card that validates the unit.
+      #
+      # Tautulli's entity is `sensor.tautulli_total_bandwidth` (key
+      # "total_bandwidth"). Earlier versions of this package looked for
+      # `sensor.tautulli_bandwidth_total`, which has never existed -- the
+      # words were transposed, so this sensor silently pinned at 0 even
+      # when Tautulli was installed. The source value is in kbit/s.
       - name: "Plex Total Bandwidth Mbps"
         unique_id: plex_total_bandwidth_mbps
         icon: mdi:speedometer
         unit_of_measurement: "Mbps"
         state: >-
-          {%- set tautulli = states('sensor.tautulli_bandwidth_total') -%}
-          {%- if tautulli not in ['unknown','unavailable','none', None] -%}
+          {%- set tautulli = states('sensor.tautulli_total_bandwidth') -%}
+          {%- if tautulli not in ['unknown','unavailable','none'] -%}
             {{ (tautulli | float(0) / 1000) | round(1) }}
           {%- else -%}
             0
@@ -133,10 +138,46 @@ template:
 # -----------------------------------------------------------------------------
 script:
   plex_scan_all_libraries:
-    alias: "Plex: Scan All Libraries"
+    alias: "Plex: Refresh All Libraries"
     icon: mdi:database-refresh
+    mode: single
     sequence:
-      - service: plex.scan_for_clients
+      # `plex.scan_for_clients` was REMOVED from HA core -- `refresh_library`
+      # is now the only service the plex integration registers. That service
+      # also never did what this script's name claims: it scanned for
+      # *clients*, not libraries. (For client discovery, press the
+      # `button.scan_clients_<server>` entity instead.)
+      #
+      # `plex.refresh_library` takes one required `library_name` per call,
+      # so we iterate over every library the Plex integration exposes.
+      # Library sensors are named "<server friendly name> Library - <title>",
+      # so the argument we need is the text after " Library - ". This is
+      # derived at runtime, so it works on any server name and picks up
+      # newly added libraries with no reconfiguration.
+      #
+      # NOTE: do NOT use `integration_entities('plex')` here. That function
+      # resolves its argument against config entry *titles* first, and the
+      # Plex entry is titled after its URL (e.g. "http://host:32400"), so
+      # 'plex' can silently match a different integration's entry and
+      # return the wrong entities. Matching on the " Library - " naming
+      # convention is both accurate and server-name agnostic. Iterating
+      # states.sensor also naturally skips libraries the user has disabled,
+      # since disabled entities have no state.
+      - variables:
+          plex_libraries: >-
+            {% set ns = namespace(names=[]) %}
+            {% for s in states.sensor %}
+              {% if s.name is string and ' Library - ' in s.name %}
+                {% set ns.names = ns.names + [s.name.split(' Library - ')[-1]] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.names | unique | list }}
+      - repeat:
+          for_each: "{{ plex_libraries }}"
+          sequence:
+            - action: plex.refresh_library
+              data:
+                library_name: "{{ repeat.item }}"
 
   plex_pause_all:
     alias: "Plex: Pause All Streams"
@@ -148,7 +189,7 @@ script:
       - condition: template
         value_template: >-
           {{ states('sensor.plex_active_streams') | int(0) > 0 }}
-      - service: media_player.media_pause
+      - action: media_player.media_pause
         target:
           entity_id: >-
             {{ state_attr('sensor.plex_active_client_ids','entities') or [] }}
