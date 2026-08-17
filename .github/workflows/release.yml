@@ -8,14 +8,34 @@ on:
 permissions:
   contents: write
 
+# Third-party actions are pinned to full commit SHAs. This matters more here
+# than in validate.yml: this workflow holds `contents: write`, so a
+# compromised or retagged action could push to the repository.
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5 (v5.1.0)
+
+      # HACS serves the version from manifest.json, not from the git tag. If
+      # they disagree, users get an update that reports the old version and
+      # HACS may offer it repeatedly. Fail before publishing anything.
+      - name: Manifest version matches tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          manifest_version="$(python -c "import json; print(json.load(open('custom_components/plex_dashboard/manifest.json'))['version'])")"
+          expected="${TAG#v}"
+          echo "tag=${TAG}  ->  expected manifest version=${expected}"
+          echo "manifest.json version=${manifest_version}"
+          if [ "$manifest_version" != "$expected" ]; then
+            echo "::error::Version mismatch: tag '${TAG}' implies manifest version '${expected}', but manifest.json says '${manifest_version}'. Update manifest.json and re-tag."
+            exit 1
+          fi
+          echo "Version check passed."
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2 (v2.6.2)
         with:
           generate_release_notes: true
           body: |

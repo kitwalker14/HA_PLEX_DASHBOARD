@@ -1,0 +1,45 @@
+# Ruff configuration for the plex_dashboard custom integration.
+#
+# This project is a Home Assistant custom component, not an installable
+# package, so there is deliberately no [project] table -- this file exists
+# purely to configure tooling.
+#
+# The rule set below is intentionally minimal and correctness-oriented
+# rather than stylistic. Style/formatting rules are NOT enabled: the source
+# predates ruff, and turning them on would demand a repo-wide reformat that
+# would bury real findings in diff noise.
+
+[tool.ruff]
+target-version = "py313"
+# Affects `ruff format` only -- no line-length lint rule (E501) is selected.
+# The longest existing line is 101 chars.
+line-length = 100
+
+[tool.ruff.lint]
+# E4  pycodestyle: import formatting errors
+# E7  pycodestyle: statement-level errors (comparisons, lambdas, ...)
+# E9  pycodestyle: syntax / IO errors
+# F   pyflakes: undefined names, unused imports/variables, f-string bugs
+# W   pycodestyle warnings: trailing whitespace, missing final newline
+# ASYNC flake8-async: blocking calls inside `async def` -- the single most
+#       valuable check for a Home Assistant integration, since blocking the
+#       event loop is the most common custom-component defect
+# B   flake8-bugbear: mutable defaults, loop-variable binding, except order
+# C4  flake8-comprehensions: redundant list()/dict() wrapping
+select = ["E4", "E7", "E9", "F", "W", "ASYNC", "B", "C4"]
+
+# Deliberately NOT enabled, each because it only produces pre-existing
+# cosmetic hits on the current source:
+#   I    (isort)      -- the defensive `try/except ImportError` blocks for
+#                        version-dependent HA constants cannot be sorted
+#                        into one contiguous import block without breaking
+#                        their fallback semantics. 3 hits.
+#   UP   (pyupgrade)  -- 1 hit (a quoted type annotation).
+#   SIM  (simplify)   -- 3 hits, all cosmetic.
+#   RUF  (ruff)       -- 8 hits, all cosmetic.
+#   S    (bandit)     -- flags the intentional best-effort try/except/pass
+#                        around optional lovelace resource enumeration.
+#   BLE  (blind-except) -- broad `except Exception` is deliberate here: the
+#                        integration must never block Home Assistant from
+#                        starting, so every optional step degrades to a log
+#                        line. Those sites already carry `# noqa: BLE001`.

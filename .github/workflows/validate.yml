@@ -5,24 +5,90 @@ on:
     branches: [main, master]
   pull_request:
   workflow_dispatch:
+  # NOTE: a `schedule:` trigger causes GitHub to automatically DISABLE this
+  # workflow after 60 days without any repository activity. If the weekly
+  # run silently stops, that is why -- re-enable it with:
+  #     gh workflow enable Validate
   schedule:
     - cron: "0 6 * * 1"
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: validate-${{ github.ref }}
   cancel-in-progress: true
 
+# Third-party actions are pinned to full commit SHAs rather than tags or
+# branches. `hacs/action@main` and `home-assistant/actions@master` are
+# mutable refs -- anyone able to push to those branches could otherwise
+# execute arbitrary code in this workflow. The trailing comment records the
+# ref each SHA was resolved from so the pin can be audited and bumped.
 jobs:
+  python:
+    name: Python (compile + lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5 (v5.1.0)
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5 (v5.6.0)
+        with:
+          python-version: "3.13"
+
+      # Catches syntax errors that would make the integration fail to import
+      # at Home Assistant startup. Cheapest possible smoke test.
+      - name: Byte-compile
+        run: python -m compileall -q custom_components
+
+      - name: Install ruff
+        run: pip install ruff==0.16.3
+
+      # Rule selection lives in pyproject.toml. It is intentionally minimal
+      # and correctness-focused; see the comments in that file.
+      - name: Ruff check
+        run: ruff check --output-format=github custom_components
+
+      # Advisory only. The existing source predates ruff and does not match
+      # its formatter; failing the build here would demand a repo-wide
+      # reformat. Surfaced so drift stays visible without gating merges.
+      - name: Ruff format (advisory)
+        run: ruff format --check --diff custom_components
+        continue-on-error: true
+
+  translations:
+    name: Translations consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5 (v5.1.0)
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5 (v5.6.0)
+        with:
+          python-version: "3.13"
+
+      # Home Assistant reads strings.json for the config/options flow but
+      # translations/en.json for the rendered UI. They drift silently, so
+      # require them to be byte-identical.
+      - name: strings.json matches translations/en.json
+        run: |
+          if ! diff -u \
+            custom_components/plex_dashboard/strings.json \
+            custom_components/plex_dashboard/translations/en.json; then
+            echo "::error::strings.json and translations/en.json differ. Copy strings.json over translations/en.json."
+            exit 1
+          fi
+          echo "strings.json and translations/en.json are identical."
+
+      # A translation_key with no strings.json entry does not raise -- the
+      # Repairs UI just renders the raw key -- so it ships silently.
+      - name: Repair translation keys are declared
+        run: python .github/scripts/check_translation_keys.py
+
   hacs:
     name: HACS validation (integration)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: hacs/action@main
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5 (v5.1.0)
+      - uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa  # main @ 2026-08-17 (untagged; latest tag is 22.5.0)
         with:
           category: integration
           ignore: brands
@@ -31,15 +97,15 @@ jobs:
     name: Hassfest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: home-assistant/actions/hassfest@master
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5 (v5.1.0)
+      - uses: home-assistant/actions/hassfest@a7c616ce81ccda50150bf1595786c71b1883fabb  # master @ 2026-08-17 (untagged)
 
   yaml-lint:
     name: YAML lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: ibiqlik/action-yamllint@v3
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5 (v5.1.0)
+      - uses: ibiqlik/action-yamllint@2576378a8e339169678f9939646ee3ee325e845c  # v3 (v3.1.1)
         with:
           file_or_dir: custom_components/plex_dashboard/data/
           config_data: |

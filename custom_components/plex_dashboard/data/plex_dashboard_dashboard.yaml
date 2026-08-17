@@ -16,7 +16,7 @@
 #    - auto-entities          (custom:auto-entities)
 #    - mini-media-player      (custom:mini-media-player)
 #    - upcoming-media-card    (recently added / sonarr / radarr)
-#  Built-in cards (gauge, tile, markdown, entities, conditional) replace the
+#  Built-in cards (tile, markdown, entities, conditional) replace the
 #  previous mushroom + bar-card + button-card dependencies, so HACS no longer
 #  needs them.
 #
@@ -47,9 +47,9 @@ views:
       # =======================================================================
       # ROW 1 / COL 1 – SERVER + QUICK STATS + ACTIONS
       # =======================================================================
-      # Tighter than v2.3.x: the bandwidth gauge has been replaced with a
-      # compact stat tile inline in the quick-stats markdown row, freeing
-      # up ~250px of vertical space and letting Now Playing breathe.
+      # Tighter than v2.3.x: the bandwidth gauge became a compact inline
+      # stat in v2.4.0 and was dropped entirely in v2.4.1, freeing up
+      # ~250px of vertical space and letting Now Playing breathe.
       - type: grid
         column_span: 1
         cards:
@@ -81,8 +81,9 @@ views:
 
           # Compact quick-stats row. Uses defensive Jinja: every state
           # read is guarded with `has_value()` so missing template sensors
-          # render as "0" / "--" instead of "unknown" or a red error
-          # tile. Bandwidth shown inline (replaces the full gauge).
+          # render as "0" instead of "unknown" or a red error tile.
+          # v2.4.1: the inline Mbps stat was dropped together with its
+          # sensor -- see plex_dashboard_package.yaml for the rationale.
           - type: markdown
             content: >-
               <ha-icon icon="mdi:play" style="color:#4caf50"></ha-icon>
@@ -96,11 +97,6 @@ views:
               <ha-icon icon="mdi:loading" style="color:#2196f3"></ha-icon>
               **{{ state_attr('sensor.plex_active_streams','buffering')
                    if has_value('sensor.plex_active_streams') else 0 }}**
-              &nbsp;&nbsp;
-              <ha-icon icon="mdi:speedometer" style="color:#9c27b0"></ha-icon>
-              **{{ states('sensor.plex_total_bandwidth_mbps')
-                   if has_value('sensor.plex_total_bandwidth_mbps')
-                   else '--' }} Mbps**
 
           # Server actions. Scripts are created by the bundled package
           # YAML; wrap in auto-entities so missing scripts collapse.
@@ -262,46 +258,42 @@ views:
             icon: mdi:bookshelf
 
           # Library counts via auto-entities. Plex creates library sensors
-          # named `sensor.plex_<server_slug>_library_<library_name>`, so the
-          # glob `sensor.plex_*_library_*` matches any server slug. We use
+          # named `sensor.<server_friendly_name>_library_<library_name>`.
+          # There is NO `plex_` prefix unless the server itself happens to
+          # be named "Plex ..." -- the Plex library sensor does not set
+          # `has_entity_name`, so the entity_id derives from the raw name
+          # "<friendly_name> Library - <title>". Selecting by `integration:
+          # plex` is therefore both correct and slug-agnostic. We use
           # `else:` (a fallback card rendered when zero entities match)
           # instead of `show_empty:false`, because some HA versions render
           # the zero-entity entities-card as a "Configuration error" tile.
           #
           # Excludes:
-          # - bundled package template sensors (plex_active_streams etc.)
-          # - "doubled-prefix" orphans: when a Plex server has been
-          #   re-added or an old config entry leaves stragglers, HA can
-          #   end up with `sensor.plex_<slug>_plex_<slug>_library_*`
-          #   entries that duplicate the real library counts. The
-          #   `sensor.plex_*_plex_*_library_*` glob filters them out
-          #   regardless of slug. Real library sensors only have ONE
-          #   `plex_<slug>` segment.
-          # - numeric-suffix orphans (`_2`, `_3`, ..., `_99`): when HA's
-          #   entity registry collides on entity_id, it appends `_N`.
-          #   The real, primary library sensor never has a trailing
-          #   underscore-number; only orphans do. The exclusion regex
-          #   `/^sensor\.plex_.+_library_.+_\d+$/` catches them.
+          # - unavailable/unknown sensors only.
+          #
+          # NOTE: previous versions also excluded "doubled-prefix" and
+          # numeric-suffix (`_2`, `_3`) entities on the theory that they
+          # were orphans from a re-added Plex integration. That was wrong
+          # and actively harmful: HA appends `_N` whenever an entity_id is
+          # already taken, so a perfectly healthy library can own
+          # `sensor.<server>_library_music_2`. The old regex
+          # `/^sensor\.plex_.+_library_.+_\d+$/` silently hid real
+          # libraries. Scoping the include to `integration: plex` already
+          # guarantees we only ever see genuine Plex library sensors, so
+          # no orphan heuristics are needed.
           - type: custom:auto-entities
             card:
               type: entities
               state_color: false
             filter:
               include:
-                - entity_id: sensor.plex_*_library_*
+                - integration: plex
+                  entity_id: /_library_/
                   options:
                     secondary_info: last-changed
               exclude:
                 - state: "unavailable"
                 - state: "unknown"
-                - entity_id: sensor.plex_active_streams
-                - entity_id: sensor.plex_active_client_ids
-                - entity_id: sensor.plex_total_bandwidth_mbps
-                - entity_id: sensor.plex_server_online
-                # Doubled-prefix orphans (re-added Plex integration)
-                - entity_id: sensor.plex_*_plex_*_library_*
-                # Numeric-suffix orphans (entity_id collisions)
-                - entity_id: /^sensor\.plex_.+_library_.+_\d+$/
             sort:
               method: name
             else:

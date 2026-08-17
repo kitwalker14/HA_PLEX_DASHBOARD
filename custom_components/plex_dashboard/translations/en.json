@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Plex Dashboard",
-        "description": "This will install the Plex Dashboard YAML files, register a Lovelace dashboard, and create the required helpers.\n\nDetected Plex servers: {detected}",
+        "description": "This will install the Plex Dashboard YAML files, register a Lovelace dashboard, and install a package that defines the required helpers (needs `packages:` in configuration.yaml and a restart).\n\nDetected Plex servers: {detected}",
         "data": {
           "plex_slug": "Plex server slug (e.g. 'myplex' from sensor.plex_myplex)",
           "dashboard_url_path": "Dashboard URL path",
@@ -15,7 +15,9 @@
     },
     "error": {
       "slug_required": "A Plex server slug is required.",
-      "slug_invalid": "Slug must be lowercase letters, numbers and underscores only."
+      "slug_invalid": "Slug must be lowercase letters, numbers and underscores only.",
+      "url_path_invalid": "URL path must start with a lowercase letter or number and contain only lowercase letters, numbers, hyphens and underscores.",
+      "url_path_reserved": "That URL path is reserved by Home Assistant. Choose a different one."
     },
     "abort": {
       "already_configured": "Plex Dashboard is already set up."
@@ -25,6 +27,7 @@
     "step": {
       "init": {
         "title": "Plex Dashboard options",
+        "description": "Re-run any part of the install. Toggling **Reset dashboard** overwrites the dashboard with the bundled version, discarding any edits you made in the UI.",
         "data": {
           "plex_slug": "Plex server slug",
           "dashboard_url_path": "Dashboard URL path",
@@ -34,6 +37,12 @@
           "reset_dashboard": "Reset dashboard to bundled version (overwrites edits)"
         }
       }
+    },
+    "error": {
+      "slug_required": "A Plex server slug is required.",
+      "slug_invalid": "Slug must be lowercase letters, numbers and underscores only.",
+      "url_path_invalid": "URL path must start with a lowercase letter or number and contain only lowercase letters, numbers, hyphens and underscores.",
+      "url_path_reserved": "That URL path is reserved by Home Assistant. Choose a different one."
     }
   },
   "issues": {

@@ -16,7 +16,6 @@ from homeassistant.components.lovelace.const import (
     CONF_SHOW_IN_SIDEBAR,
     CONF_TITLE,
     CONF_URL_PATH,
-    DOMAIN as LOVELACE_DOMAIN,
     LOVELACE_DATA,
 )
 
@@ -36,24 +35,6 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv, issue_registry as ir
-
-# Lovelace storage-mode internals. These are not part of HA's public API and
-# have moved/been renamed across versions. Import defensively so a future HA
-# release that refactors lovelace doesn't break integration setup -- instead
-# we surface a Repair issue and continue (the bundled YAML file on disk still
-# allows manual dashboard registration via the UI).
-try:
-    from homeassistant.components.lovelace.dashboard import (  # type: ignore[attr-defined]
-        DashboardsCollection,
-        LovelaceStorage,
-    )
-    _LOVELACE_INTERNALS_AVAILABLE = True
-    _LOVELACE_IMPORT_ERROR: str | None = None
-except ImportError as _err:  # pragma: no cover - depends on HA version
-    DashboardsCollection = None  # type: ignore[assignment,misc]
-    LovelaceStorage = None  # type: ignore[assignment,misc]
-    _LOVELACE_INTERNALS_AVAILABLE = False
-    _LOVELACE_IMPORT_ERROR = str(_err)
 
 from .const import (
     CONF_DASHBOARD_URL_PATH,
@@ -263,9 +244,88 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove the Lovelace dashboard we registered when the user deletes us.
+
+    Without this, deleting the integration leaves a "Plex" entry in the
+    sidebar forever, with nothing tying it back to this integration -- the
+    user has to know to remove it by hand under Settings -> Dashboards.
+
+    The YAML files written to /config are deliberately left in place: they
+    are inert once the integration is gone, and the user may have edited
+    them or be depending on the package's helpers.
+    """
+    if not entry.data.get(CONF_REGISTER_DASHBOARD, True):
+        return
+
+    url_path = entry.data.get(CONF_DASHBOARD_URL_PATH, DEFAULT_DASHBOARD_URL_PATH)
+
+    # Must be HA's own collection: its change listener is what removes the
+    # sidebar panel and deletes the dashboard's config store. Deleting from a
+    # private instance would leave the panel up and, worse, HA's stale
+    # in-memory copy would resurrect the entry on its next write.
+    collection = _async_get_dashboards_collection(hass)
+    if collection is None:
+        _LOGGER.warning(
+            "Plex Dashboard: could not reach the lovelace dashboards "
+            "collection to remove dashboard '%s'. Remove it manually "
+            "under Settings -> Dashboards.",
+            url_path,
+        )
+        return
+
+    item = next(
+        (
+            item
+            for item in collection.async_items()
+            if item.get(CONF_URL_PATH) == url_path
+        ),
+        None,
+    )
+    if item is None:
+        _LOGGER.debug("Plex Dashboard: no dashboard '%s' to remove", url_path)
+        return
+
+    try:
+        # The collection's listener handles frontend.async_remove_panel and
+        # the config-store deletion, so we must not do either ourselves.
+        await collection.async_delete_item(item["id"])
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning(
+            "Plex Dashboard: could not remove dashboard '%s' (%s). "
+            "Remove it manually under Settings -> Dashboards.",
+            url_path,
+            err,
+        )
+        return
+
+    _LOGGER.info("Plex Dashboard: removed dashboard '%s'", url_path)
+
+
 # ---------------------------------------------------------------------------
 # Lovelace dashboard registration (storage mode, fully runtime)
 # ---------------------------------------------------------------------------
+def _async_get_dashboards_collection(hass: HomeAssistant):
+    """Return HA's authoritative storage DashboardsCollection, or None.
+
+    HA's lovelace component keeps its DashboardsCollection as a local in
+    ``async_setup`` and never publishes it on ``hass.data``. The only stable
+    handle is the websocket command it registers, whose bound handler carries
+    the collection. We must use *that* instance: it is the one carrying the
+    ``storage_dashboard_changed`` listener that inserts the dashboard into
+    ``hass.data[LOVELACE_DATA].dashboards`` and registers the sidebar panel,
+    and it is the one whose in-memory view gets serialised on every save.
+    Creating our own instance would both skip the panel registration and let
+    HA's stale copy overwrite our entry on its next write.
+    """
+    try:
+        handler, _schema = hass.data["websocket_api"]["lovelace/dashboards/list"]
+        return handler.__self__.storage_collection
+    except (KeyError, AttributeError, TypeError) as err:
+        _LOGGER.debug("Could not resolve lovelace dashboards collection: %s", err)
+        return None
+
+
 async def _async_register_dashboard(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -289,34 +349,14 @@ async def _async_register_dashboard(
         _LOGGER.debug("Plex Dashboard: lovelace not initialised yet, skipping register")
         return
 
-    # If HA refactored lovelace internals out from under us, surface a Repair
-    # rather than silently failing -- the bundled YAML on disk still lets the
-    # user register the dashboard manually under Settings -> Dashboards.
-    if not _LOVELACE_INTERNALS_AVAILABLE:
-        ir.async_create_issue(
-            hass,
-            DOMAIN,
-            "lovelace_internals_unavailable",
-            is_fixable=False,
-            severity=ir.IssueSeverity.ERROR,
-            translation_key="lovelace_internals_unavailable",
-            translation_placeholders={
-                "error": _LOVELACE_IMPORT_ERROR or "unknown",
-                "url_path": url_path,
-                "issue_url": "https://github.com/kitwalker14/HA_PLEX_DASHBOARD/issues",
-            },
-        )
-        _LOGGER.error(
-            "Plex Dashboard: cannot auto-register dashboard: %s. "
-            "The dashboard YAML was still written to disk; add it manually "
-            "under Settings -> Dashboards using URL path '%s'.",
-            _LOVELACE_IMPORT_ERROR,
-            url_path,
-        )
-        return
-
-    # Clear stale Repair if a previous version raised it and HA has since
-    # restored the import.
+    # Note: there is deliberately no import-availability probe here. Our only
+    # real dependency is HA's dashboards collection, and that is checked by
+    # the `collection is None` branch further down. Probing for the internal
+    # lovelace.dashboard module would raise a false-positive Repair (and skip
+    # registration) on any HA release that merely renames or moves that
+    # module while leaving the websocket command we actually use intact.
+    #
+    # Clear a stale Repair if an older version of this integration raised it.
     ir.async_delete_issue(hass, DOMAIN, "lovelace_internals_unavailable")
 
     # Parse YAML off the loop
@@ -331,22 +371,56 @@ async def _async_register_dashboard(
 
     new_hash = _hash_dashboard(dashboard_config)
 
-    # Construct a dashboards collection. It shares the same on-disk storage
-    # as the singleton lovelace created at startup, so loading a fresh
-    # instance is safe.
-    dashboards_collection = DashboardsCollection(hass)
-    await dashboards_collection.async_load()
+    # Everything below must go through HA's own DashboardsCollection, never a
+    # private instance of our own. Two independent reasons:
+    #
+    # 1) Panel registration. HA attaches a ``storage_dashboard_changed``
+    #    listener to its collection; that listener is what builds the
+    #    LovelaceStorage, files it under hass.data[LOVELACE_DATA].dashboards
+    #    and calls frontend.async_register_built_in_panel. Drive a detached
+    #    collection and none of that fires -- the dashboard stays invisible
+    #    in the sidebar until HA is restarted.
+    #
+    # 2) Data loss. StorageCollection serialises its in-memory self.data.
+    #    HA's collection never learns about an item created behind its back,
+    #    so the next time the user adds/renames/deletes any dashboard in the
+    #    UI, HA writes its stale view and our entry is dropped from
+    #    .storage/lovelace_dashboards.
+    collection = _async_get_dashboards_collection(hass)
+    if collection is None:
+        # Same Repair as a failed internals import: from the user's point of
+        # view the outcome is identical (we cannot register the dashboard,
+        # the YAML on disk still lets them add it by hand).
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            "lovelace_internals_unavailable",
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="lovelace_internals_unavailable",
+            translation_placeholders={
+                "error": "dashboards collection unavailable",
+                "url_path": url_path,
+                "issue_url": "https://github.com/kitwalker14/HA_PLEX_DASHBOARD/issues",
+            },
+        )
+        _LOGGER.error(
+            "Plex Dashboard: cannot reach Home Assistant's lovelace "
+            "dashboards collection. The dashboard YAML was still written "
+            "to disk; add it manually under Settings -> Dashboards using "
+            "URL path '%s'.",
+            url_path,
+        )
+        return
 
-    existing = next(
-        (
-            item
-            for item in dashboards_collection.async_items()
-            if item.get(CONF_URL_PATH) == url_path
-        ),
-        None,
-    )
+    # hass.data[LOVELACE_DATA].dashboards is keyed by url_path and holds the
+    # LovelaceStorage HA built for us. Its config store file key derives from
+    # the collection-assigned id, not the url_path, so we must reuse this
+    # object rather than construct our own.
+    existing_storage = lovelace_data.dashboards.get(url_path)
+    created = False
 
-    if existing is None:
+    if existing_storage is None:
         create_payload: dict[str, Any] = {
             CONF_URL_PATH: url_path,
             CONF_TITLE: DEFAULT_DASHBOARD_TITLE,
@@ -360,8 +434,13 @@ async def _async_register_dashboard(
         if _HAS_ALLOW_SINGLE_WORD:
             create_payload[CONF_ALLOW_SINGLE_WORD] = True
         try:
-            existing = await dashboards_collection.async_create_item(create_payload)
+            # async_create_item persists *and* awaits the change listener, so
+            # by the time this returns the panel is registered and the
+            # LovelaceStorage is in lovelace_data.dashboards.
+            await collection.async_create_item(create_payload)
         except Exception as err:  # noqa: BLE001
+            # Covers HomeAssistantError (e.g. url_already_exists when some
+            # other panel squats our url_path) as well as schema errors.
             _LOGGER.warning(
                 "Plex Dashboard: could not create dashboard entry %s: %s",
                 url_path,
@@ -369,11 +448,26 @@ async def _async_register_dashboard(
             )
             return
 
-    storage = LovelaceStorage(hass, existing)
-    try:
-        existing_config = await storage.async_load(force=True)
-    except Exception:  # noqa: BLE001
+        created = True
+        existing_storage = lovelace_data.dashboards.get(url_path)
+        if existing_storage is None:
+            _LOGGER.warning(
+                "Plex Dashboard: dashboard entry %s was created but no "
+                "storage was registered for it; skipping write.",
+                url_path,
+            )
+            return
+
+    if created:
+        # A dashboard we just created has no config yet; async_load would
+        # only raise. Treat it as empty so the write below is a plain
+        # first-time registration.
         existing_config = None
+    else:
+        try:
+            existing_config = await existing_storage.async_load(force=True)
+        except Exception:  # noqa: BLE001
+            existing_config = None
 
     force_reset = bool(entry.options.get(CONF_RESET_DASHBOARD, False))
     last_hash = entry.data.get(DATA_INSTALLED_DASHBOARD_HASH, "")
@@ -398,7 +492,7 @@ async def _async_register_dashboard(
             )
             return
 
-    await storage.async_save(dashboard_config)
+    await existing_storage.async_save(dashboard_config)
     _LOGGER.info(
         "Plex Dashboard: %s storage dashboard '%s'",
         "force-reset" if force_reset else ("updated" if existing_config else "registered"),
@@ -570,6 +664,8 @@ async def _async_check_deployment_health(
             not in {
                 "sensor.plex_active_streams",
                 "sensor.plex_active_client_ids",
+                # Removed from the package in v2.4.1, but pre-2.4.1 installs
+                # keep a restored registry entry, so still exclude it here.
                 "sensor.plex_total_bandwidth_mbps",
                 "sensor.plex_server_online",
             }
@@ -679,13 +775,6 @@ async def _async_check_deployment_health(
             "will pick them up automatically on next reload."
         )
 
-    if hass.states.get("sensor.tautulli_bandwidth_total") is None:
-        findings.append(
-            "- _Optional:_ **Tautulli** integration not detected — bandwidth "
-            "gauge will read 0. [Install Tautulli]"
-            "(https://www.home-assistant.io/integrations/tautulli/) to "
-            "populate it."
-        )
     if (
         hass.states.get("sensor.radarr_upcoming_media") is None
         and hass.states.get("sensor.sonarr_upcoming_media") is None

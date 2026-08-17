@@ -20,8 +20,8 @@ dashboard-registration work for you.
 - **4-column responsive layout** (HA `sections` view)
 - **Auto now-playing cards** – one rich card per active stream, no manual YAML
 - **Rich metadata** – poster, title, S/E or artist/album, user, state, progress
-- **Server overview** – status, stream chips, bandwidth bar, action buttons
-- **Library counts** – auto-discovered from `sensor.plex_library_*`
+- **Server overview** – status, stream chips, action buttons
+- **Library counts** – auto-discovered from the Plex integration's own library sensors
 - **Client list** – every Plex client (active + idle), sorted by activity
 - **Recently added** – Movies / TV / Music with a filter pill
 - **Coming soon view** – Radarr + Sonarr upcoming releases
