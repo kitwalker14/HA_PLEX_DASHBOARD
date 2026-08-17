@@ -15,10 +15,10 @@
 #  ---- HACS REQUIREMENTS (frontend) ----
 #    - auto-entities          (custom:auto-entities)
 #    - mini-media-player      (custom:mini-media-player)
-#    - upcoming-media-card    (recently added / sonarr / radarr)
-#  Built-in cards (tile, markdown, entities, conditional) replace the
+#    - upcoming-media-card    (Recently Added posters only)
+#  Built-in cards (tile, markdown, entities, conditional, calendar) replace the
 #  previous mushroom + bar-card + button-card dependencies, so HACS no longer
-#  needs them.
+#  needs them. Coming Soon uses the built-in `calendar` card as of v2.4.2.
 #
 #  ---- DEPLOYMENT-AGNOSTIC ----
 #  This dashboard makes NO assumptions about your Plex server slug, which
@@ -184,39 +184,96 @@ views:
           # "Configuration error" on certain mini-media-player versions when
           # passed through auto-entities' substitution. The defaults already
           # produce a clean card.
-          - type: custom:auto-entities
-            show_empty: false
+          # v2.4.2: `input_boolean.plex_dashboard_show_paused` is now actually
+          # wired up. Through v2.4.1 the helper was rendered in the Settings
+          # section but referenced by nothing at all -- no filter, template or
+          # condition anywhere in this file -- so toggling it did nothing.
+          # That was the single most visible "the dashboard is broken" symptom.
+          #
+          # Implemented as two `conditional`-wrapped copies rather than an
+          # auto-entities `filter.template`, for the same reason documented on
+          # the empty-state card above: `condition: state` degrades safely to
+          # "no match" when the helper is missing, whereas a template filter
+          # errors. The two conditions are deliberately asymmetric -- the
+          # paused-inclusive card uses `state_not: "off"` so it still renders
+          # when the helper does not exist at all (package YAML never
+          # installed), preserving pre-v2.4.2 behaviour.
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.plex_dashboard_show_paused
+                state_not: "off"
             card:
-              type: vertical-stack
-            card_param: cards
-            filter:
-              include:
-                - entity_id: media_player.plex_*
-                  state: playing
-                  options:
-                    type: custom:mini-media-player
-                    entity: this.entity_id
-                    artwork: cover
-                - entity_id: media_player.plex_*
-                  state: paused
-                  options:
-                    type: custom:mini-media-player
-                    entity: this.entity_id
-                    artwork: cover
-                - entity_id: media_player.plex_*
-                  state: buffering
-                  options:
-                    type: custom:mini-media-player
-                    entity: this.entity_id
-                    artwork: cover
-              exclude:
-                - state: "unavailable"
-                - state: "unknown"
-                - state: "off"
-                - state: "idle"
-            sort:
-              method: state
-              reverse: true
+              type: custom:auto-entities
+              show_empty: false
+              card:
+                type: vertical-stack
+              card_param: cards
+              filter:
+                include:
+                  - entity_id: media_player.plex_*
+                    state: playing
+                    options:
+                      type: custom:mini-media-player
+                      entity: this.entity_id
+                      artwork: cover
+                  - entity_id: media_player.plex_*
+                    state: paused
+                    options:
+                      type: custom:mini-media-player
+                      entity: this.entity_id
+                      artwork: cover
+                  - entity_id: media_player.plex_*
+                    state: buffering
+                    options:
+                      type: custom:mini-media-player
+                      entity: this.entity_id
+                      artwork: cover
+                exclude:
+                  - state: "unavailable"
+                  - state: "unknown"
+                  - state: "off"
+                  - state: "idle"
+              sort:
+                method: state
+                reverse: true
+
+          # Identical card with paused streams filtered out. Rendered only
+          # when the helper is explicitly `off`.
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.plex_dashboard_show_paused
+                state: "off"
+            card:
+              type: custom:auto-entities
+              show_empty: false
+              card:
+                type: vertical-stack
+              card_param: cards
+              filter:
+                include:
+                  - entity_id: media_player.plex_*
+                    state: playing
+                    options:
+                      type: custom:mini-media-player
+                      entity: this.entity_id
+                      artwork: cover
+                  - entity_id: media_player.plex_*
+                    state: buffering
+                    options:
+                      type: custom:mini-media-player
+                      entity: this.entity_id
+                      artwork: cover
+                exclude:
+                  - state: "unavailable"
+                  - state: "unknown"
+                  - state: "off"
+                  - state: "idle"
+                  - state: "paused"
+              sort:
+                method: state
+                reverse: true
 
       # =======================================================================
       # ROW 1 / COL 3 – CLIENTS
@@ -229,20 +286,69 @@ views:
             heading_style: title
             icon: mdi:monitor-multiple
 
-          # All Plex clients (active + idle)
-          - type: custom:auto-entities
+          # All Plex clients. `unavailable` is ALWAYS excluded: the Plex
+          # integration keeps a media_player entity for every client it has
+          # ever seen, so on a mature install the overwhelming majority are
+          # offline registry cruft (42 of 44 on the reference system) and
+          # listing them is never useful.
+          #
+          # v2.4.2: `input_boolean.plex_dashboard_show_offline_clients`
+          # ("Show idle clients") is now wired up -- through v2.4.1 it was,
+          # like show_paused, referenced nowhere. It gates `idle`: a client
+          # that is connected but not playing anything, which is the only
+          # genuinely optional state here. As with Now Playing above, the
+          # permissive card uses `state_not: "off"` so it still renders when
+          # the helper is absent, preserving pre-v2.4.2 behaviour.
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.plex_dashboard_show_offline_clients
+                state_not: "off"
             card:
-              type: entities
-              state_color: true
-              title: ""
-            filter:
-              include:
-                - entity_id: media_player.plex_*
-              exclude:
-                - state: "unavailable"
-            sort:
-              method: state
-              reverse: true
+              type: custom:auto-entities
+              card:
+                type: entities
+                state_color: true
+                title: ""
+              filter:
+                include:
+                  - entity_id: media_player.plex_*
+                exclude:
+                  - state: "unavailable"
+                  - state: "unknown"
+              sort:
+                method: state
+                reverse: true
+              else:
+                type: markdown
+                content: _No Plex clients are connected._
+
+          # Active clients only (idle hidden).
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.plex_dashboard_show_offline_clients
+                state: "off"
+            card:
+              type: custom:auto-entities
+              card:
+                type: entities
+                state_color: true
+                title: ""
+              filter:
+                include:
+                  - entity_id: media_player.plex_*
+                exclude:
+                  - state: "unavailable"
+                  - state: "unknown"
+                  - state: "idle"
+                  - state: "off"
+              sort:
+                method: state
+                reverse: true
+              else:
+                type: markdown
+                content: _No Plex clients are active._
 
       # =======================================================================
       # ROW 1 / COL 4 – LIBRARIES
@@ -352,8 +458,22 @@ views:
       # `else:` markdown collapses the card cleanly if no matching sensor
       # exists (integration not installed, or that media type doesn't
       # exist on this Plex server).
+      # v2.4.2: the Recently Added filter pill is finally wired up. Section
+      # `visibility` is expressed with `state_not` rather than `state` so it
+      # fails OPEN: when `input_select.plex_dashboard_recently_added_filter`
+      # does not exist (package YAML not installed) no condition matches, so
+      # all three sections stay visible exactly as they did in v2.4.1.
+      # With the helper present, "All" trips nothing and shows all three;
+      # any specific choice hides the other two.
       - type: grid
         column_span: 1
+        visibility:
+          - condition: state
+            entity: input_select.plex_dashboard_recently_added_filter
+            state_not: TV
+          - condition: state
+            entity: input_select.plex_dashboard_recently_added_filter
+            state_not: Music
         cards:
           - type: custom:auto-entities
             card:
@@ -381,6 +501,13 @@ views:
 
       - type: grid
         column_span: 1
+        visibility:
+          - condition: state
+            entity: input_select.plex_dashboard_recently_added_filter
+            state_not: Movies
+          - condition: state
+            entity: input_select.plex_dashboard_recently_added_filter
+            state_not: Music
         cards:
           - type: custom:auto-entities
             card:
@@ -408,6 +535,13 @@ views:
 
       - type: grid
         column_span: 1
+        visibility:
+          - condition: state
+            entity: input_select.plex_dashboard_recently_added_filter
+            state_not: Movies
+          - condition: state
+            entity: input_select.plex_dashboard_recently_added_filter
+            state_not: TV
         cards:
           - type: custom:auto-entities
             card:
@@ -449,28 +583,52 @@ views:
           - type: heading
             heading: Upcoming Movies (Radarr)
             icon: mdi:movie-roll
-          # Radarr is optional. Wrapped in auto-entities so a missing
-          # `sensor.radarr_upcoming_media` collapses cleanly (with a
-          # markdown hint) instead of rendering an empty progress bar.
+          # v2.4.2: rebuilt on Radarr's own calendar entity.
+          #
+          # Through v2.4.1 this card read `sensor.radarr_upcoming_media`,
+          # which the core Radarr integration does NOT provide -- that entity
+          # comes from the separate `radarr_upcoming_media` HACS custom
+          # component. On any install without that component the sensor never
+          # exists, so this card only ever rendered its `else:` placeholder
+          # and the entire Coming Soon view was dead on arrival.
+          #
+          # The core Radarr integration does expose a calendar entity, so we
+          # render it with HA's built-in `calendar` card. Its entity_id is
+          # derived from the Radarr *instance* name chosen at config-flow
+          # time (e.g. `calendar.rumpus_room_radarr`), never a fixed slug, so
+          # it must be discovered rather than hardcoded.
+          #
+          # Selection is by `integration:` + `domain:`, NOT an entity_id
+          # regex. A regex like /calendar\..*radarr.*/ also catches manually
+          # created ICS calendars, whose entity_id and friendly name need not
+          # agree -- on the reference system `calendar.radarr` is actually
+          # named "Lidarr", so a name-sorted regex match picked the wrong
+          # calendar entirely.
+          #
+          # auto-entities substitutes `this.entity_id` by stringifying the
+          # whole options object and regex-replacing it, so the token
+          # resolves correctly even nested inside the `entities:` list.
           - type: custom:auto-entities
             card:
               type: vertical-stack
             card_param: cards
             filter:
               include:
-                - entity_id: sensor.radarr_upcoming_media
+                - integration: radarr
+                  domain: calendar
                   options:
-                    type: custom:upcoming-media-card
-                    entity: this.entity_id
-                    title: ""
-                    image_style: fanart
-                    max: 8
-                    date: mmdd
+                    type: calendar
+                    initial_view: listWeek
+                    entities:
+                      - this.entity_id
+            sort:
+              method: name
+              count: 1
             else:
               type: markdown
               content: >-
-                _Radarr integration not detected._<br>
-                Install the [Radarr integration](https://www.home-assistant.io/integrations/radarr/)
+                _No Radarr calendar found._<br>
+                Add the [Radarr integration](https://www.home-assistant.io/integrations/radarr/)
                 to populate this list.
 
       - type: grid
@@ -479,26 +637,30 @@ views:
           - type: heading
             heading: Upcoming Episodes (Sonarr)
             icon: mdi:television-classic
-          # Sonarr is optional. Same pattern as Radarr above.
+          # Sonarr is optional. Same pattern and same rationale as Radarr
+          # above -- `sensor.sonarr_upcoming_media` was never a core Sonarr
+          # entity either.
           - type: custom:auto-entities
             card:
               type: vertical-stack
             card_param: cards
             filter:
               include:
-                - entity_id: sensor.sonarr_upcoming_media
+                - integration: sonarr
+                  domain: calendar
                   options:
-                    type: custom:upcoming-media-card
-                    entity: this.entity_id
-                    title: ""
-                    image_style: fanart
-                    max: 8
-                    date: mmdd
+                    type: calendar
+                    initial_view: listWeek
+                    entities:
+                      - this.entity_id
+            sort:
+              method: name
+              count: 1
             else:
               type: markdown
               content: >-
-                _Sonarr integration not detected._<br>
-                Install the [Sonarr integration](https://www.home-assistant.io/integrations/sonarr/)
+                _No Sonarr calendar found._<br>
+                Add the [Sonarr integration](https://www.home-assistant.io/integrations/sonarr/)
                 to populate this list.
 
       - type: grid
