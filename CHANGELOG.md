@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-08-17
+
+Three controls on the dashboard did nothing, and the entire Coming Soon view
+pointed at sensors that most installs do not have. Everything the dashboard
+renders is now wired to something real.
+
+### Fixed
+- **The Settings toggles were decorative.** `input_boolean.plex_dashboard_show_paused`,
+  `input_boolean.plex_dashboard_show_offline_clients` and
+  `input_select.plex_dashboard_recently_added_filter` were created by the
+  package, rendered in the Settings section, and then referenced by nothing.
+  No filter, template, or condition consumed them, so toggling them could not
+  change the dashboard. They are now wired up:
+  - `show_paused` selects between two Now Playing cards - one that includes
+    `paused`, one that excludes it.
+  - `show_offline_clients` selects between two Clients cards. Note this gates
+    `idle` clients, matching the helper's own name ("Show idle clients"); the
+    card now always excludes `unavailable`/`unknown`, because a Plex install
+    accumulates dozens of stale client registrations that are never useful.
+  - `recently_added_filter` drives `visibility` on the New Movies, New
+    Episodes and New Music sections.
+- **The Coming Soon view could never have worked on a stock install.** Both
+  cards read `sensor.radarr_upcoming_media` and `sensor.sonarr_upcoming_media`.
+  Those entities do not come from the Radarr and Sonarr integrations shipped
+  with Home Assistant - they come from the separate `radarr_upcoming_media`
+  and `sonarr_upcoming_media` HACS *integrations*, which are easily confused
+  with the `upcoming-media-card` HACS *frontend card* the view also used.
+  Without them the view rendered two permanently empty cards. Both are now
+  built on the `calendar` entities that the core Radarr and Sonarr
+  integrations provide out of the box, so the view works with no extra
+  installs.
+
+### Changed
+- Coming Soon selects its calendars by `integration:` plus `domain:` rather
+  than by an entity_id pattern. Matching on the id is unsafe: an `ics_calendar`
+  entity can legitimately own `calendar.radarr`, and its friendly name may not
+  match its id at all, so a name-sorted regex can silently pick the wrong
+  calendar.
+- The Clients cards gained an `else:` fallback. An `entities` card built with
+  an empty entity list can render as "Configuration error", which reads as a
+  bug rather than as an empty state.
+
+### Notes
+- Every new condition fails open. The permissive branch tests `state_not: "off"`
+  rather than `state: "on"`, so a dashboard installed without the package - and
+  therefore without the helpers - still renders exactly as it did before this
+  release instead of going blank.
+- Sonarr's calendar entity queries the Sonarr API directly for whatever range
+  the card requests, so the card is not constrained by the integration's
+  `upcoming_days` option. That option limits the entity's own attributes and
+  `sensor.sonarr_upcoming`, not the calendar view.
+
 ## [2.4.1] - 2026-08-17
 
 A correctness release. The Libraries section was broken for essentially
