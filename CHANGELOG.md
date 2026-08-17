@@ -7,6 +7,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-08-17
+
+A correctness release. The Libraries section was broken for essentially
+everyone, the Scan tile had been dead since Plex's service was removed from
+HA core, and newly registered dashboards did not appear in the sidebar until
+Home Assistant was restarted.
+
+### Fixed
+- **Libraries section showed nothing for most users and silently hid real
+  libraries for the rest.** The card globbed `sensor.plex_*_library_*`, but
+  Plex library sensors are named `sensor.<server_friendly_name>_library_<title>`
+  — there has never been a `plex_` prefix, so the glob only matched when the
+  Plex server itself happened to be named "Plex*". Replaced with an
+  `integration: plex` + `/_library_/` filter.
+- **The `/^sensor\.plex_.+_library_.+_\d+$/` "orphan" exclude was hiding
+  legitimate libraries.** Home Assistant appends `_N` on entity_id collision,
+  so this rule discarded real data — on the development instance it was
+  hiding a Music library of 62,731 tracks and a Photos library of 90,597
+  photos. Removed. The four template-sensor excludes went with it, since
+  scoping to the `plex` integration already excludes them.
+- **"Scan All Libraries" raised `ServiceNotFound`.** `plex.scan_for_clients`
+  was removed from HA core, and it scanned *clients*, never libraries. The
+  script (renamed "Plex: Refresh All Libraries") now repeats over
+  `plex.refresh_library`, deriving each `library_name` at runtime from the
+  `" Library - "` naming convention, so it is server-name agnostic and picks
+  up newly added libraries automatically. The script entity_id is unchanged,
+  so the existing dashboard tile keeps working.
+- **Newly registered dashboards had no sidebar panel, and could be silently
+  deleted.** The integration drove its own `DashboardsCollection` instance,
+  but Home Assistant keeps its collection local to `lovelace.async_setup` and
+  attaches the `storage_dashboard_changed` listener to it. That listener is
+  what builds the `LovelaceStorage` and registers the frontend panel, so it
+  never fired. Worse, `StorageCollection` serialises its in-memory view, so
+  the next time the user touched any dashboard in the UI, HA wrote a stale
+  view and dropped this dashboard from `.storage/lovelace_dashboards`. Both
+  paths now resolve HA's authoritative collection. Verified against HA 2026.8.2.
+- **HACS offered the integration to Home Assistant versions it cannot run
+  on.** `hacs.json` declared a minimum of 2024.1.0, but `LOVELACE_DATA` only
+  exists from 2025.2 and `ConfigFlowResult` from 2024.4, so setup failed at
+  import. Corrected to 2025.2.0.
+- **Setup could race the Plex integration**, find no `sensor.plex_<slug>` and
+  raise a bogus slug-mismatch repair on every start. Added
+  `after_dependencies: [plex]`.
+- **The options flow ran zero input validation.** The slug went straight into
+  a `str.replace()` against the package YAML, so a crafted value could inject
+  Jinja or break the document, and a malformed `url_path` silently failed
+  registration. Both flows now share `_validate_input()`. Rejected input is
+  redisplayed rather than reset.
+- **Slug auto-detection suggested nonsense.** It offered library sensors and
+  this package's own template sensors as candidates, so a re-add defaulted to
+  `active_client_ids`.
+- **Manifest key ordering failed the hassfest `[MANIFEST]` check.** Hassfest
+  requires `domain`, `name`, then strictly alphabetical.
+
+### Added
+- `async_remove_entry`: deleting the integration now also removes the storage
+  dashboard and its sidebar panel. Previously it persisted forever and had to
+  be removed by hand. The generated `/config` YAML files are still left in
+  place deliberately.
+- CI now compiles and lints ~950 lines of Python that were previously never
+  checked, asserts `strings.json` and `translations/en.json` stay identical,
+  and verifies via AST that every repair `translation_key` is declared in
+  `strings.json`.
+- `release.yml` now fails if `manifest.json`'s version does not match the
+  pushed tag, since HACS serves the version from the manifest, not the tag.
+
+### Changed
+- Both scripts use the modern `action:` syntax instead of the deprecated
+  `service:`.
+- The options flow is modernised to the HA 2024.11+ form, reading
+  `self.config_entry` live instead of snapshotting it at construction, which
+  previously served stale defaults if the entry changed mid-flow.
+- `strings.json` no longer claims the config flow creates helpers (the package
+  does, and only if `packages:` is enabled and HA has been restarted), and now
+  documents what "Reset dashboard" actually discards.
+- Added `single_config_entry`, matching the `unique_id` abort the flow already
+  performed.
+
+### Removed
+- **The total bandwidth stat (`sensor.plex_total_bandwidth_mbps`) and its
+  inline Mbps figure on the Overview.** It derived a value from Tautulli's
+  `sensor.tautulli_total_bandwidth`, but failed closed in the worst possible
+  way: with no Tautulli installed the template still emitted the string `"0"`,
+  so `has_value()` was true and the card confidently rendered **"0 Mbps"** —
+  indistinguishable from a genuinely idle server. A stat that cannot
+  distinguish "no data" from "no traffic" is worse than no stat at all. Plex
+  exposes no bandwidth total of its own, so there is no first-party
+  replacement; the package YAML documents how to reinstate it if you run
+  Tautulli.
+  - Note: this release also corrected the underlying entity id
+    (`sensor.tautulli_bandwidth_total` → `sensor.tautulli_total_bandwidth`; the
+    words had been transposed, so the stat pinned at 0 even *with* Tautulli
+    installed) before the feature was removed outright.
+
+### Security
+- All six GitHub Actions are pinned to full commit SHAs. `hacs/action@main`
+  and `home-assistant/actions@master` were mutable branch refs able to run
+  arbitrary code in CI, and `release.yml` holds `contents: write`.
+- Dropped the unused `pull-requests: write` permission.
+
 ## [2.4.0] - 2026-04-22
 
 ### Changed
