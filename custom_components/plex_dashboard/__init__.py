@@ -664,6 +664,8 @@ async def _async_check_deployment_health(
             not in {
                 "sensor.plex_active_streams",
                 "sensor.plex_active_client_ids",
+                # Removed from the package in v2.4.1, but pre-2.4.1 installs
+                # keep a restored registry entry, so still exclude it here.
                 "sensor.plex_total_bandwidth_mbps",
                 "sensor.plex_server_online",
             }
@@ -773,13 +775,6 @@ async def _async_check_deployment_health(
             "will pick them up automatically on next reload."
         )
 
-    if hass.states.get("sensor.tautulli_bandwidth_total") is None:
-        findings.append(
-            "- _Optional:_ **Tautulli** integration not detected — bandwidth "
-            "gauge will read 0. [Install Tautulli]"
-            "(https://www.home-assistant.io/integrations/tautulli/) to "
-            "populate it."
-        )
     if (
         hass.states.get("sensor.radarr_upcoming_media") is None
         and hass.states.get("sensor.sonarr_upcoming_media") is None

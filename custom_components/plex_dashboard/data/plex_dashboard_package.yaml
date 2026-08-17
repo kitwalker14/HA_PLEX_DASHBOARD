@@ -83,28 +83,21 @@ template:
                | selectattr('state','in',['playing','paused','buffering'])
                | map(attribute='entity_id') | list }}
 
-      # ---------- Total bandwidth (from Tautulli, optional) ----------
-      # NOTE: We deliberately do NOT set device_class:data_rate because HA's
-      # data_rate device class only accepts canonical units (bit/s, Mbit/s,
-      # MB/s, etc.), and "Mbps" is not in that allow-list -- it would raise
-      # a "Configuration error" on any card that validates the unit.
+      # ---------- Total bandwidth: REMOVED in v2.4.1 ----------
+      # `sensor.plex_total_bandwidth_mbps` used to derive a Mbps figure from
+      # Tautulli's `sensor.tautulli_total_bandwidth`. It has been removed
+      # because it fails closed in the worst way: with no Tautulli install
+      # the template still emitted the string "0", so `has_value()` was
+      # true on the dashboard and the card confidently rendered "0 Mbps"
+      # -- indistinguishable from a genuinely idle server. A stat that
+      # cannot tell "no data" from "no traffic" is worse than no stat.
       #
-      # Tautulli's entity is `sensor.tautulli_total_bandwidth` (key
-      # "total_bandwidth"). Earlier versions of this package looked for
-      # `sensor.tautulli_bandwidth_total`, which has never existed -- the
-      # words were transposed, so this sensor silently pinned at 0 even
-      # when Tautulli was installed. The source value is in kbit/s.
-      - name: "Plex Total Bandwidth Mbps"
-        unique_id: plex_total_bandwidth_mbps
-        icon: mdi:speedometer
-        unit_of_measurement: "Mbps"
-        state: >-
-          {%- set tautulli = states('sensor.tautulli_total_bandwidth') -%}
-          {%- if tautulli not in ['unknown','unavailable','none'] -%}
-            {{ (tautulli | float(0) / 1000) | round(1) }}
-          {%- else -%}
-            0
-          {%- endif -%}
+      # Plex itself exposes no bandwidth total, so there is no first-party
+      # replacement. If you run Tautulli and want this back, add a template
+      # sensor reading `sensor.tautulli_total_bandwidth` (kbit/s; divide by
+      # 1000). Do NOT set `device_class: data_rate` -- "Mbps" is not in
+      # HA's allow-list for that class and every card validating the unit
+      # will raise a configuration error.
 
       # ---------- Plex server up/down ----------
       - name: "Plex Server Online"

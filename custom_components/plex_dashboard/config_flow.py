@@ -31,6 +31,10 @@ PLEX_SENSOR_RE = re.compile(r"^sensor\.plex_(?!library_|recently_added_)([a-z0-9
 # guard the dropdown fills up with our own template sensors as soon as the
 # package is installed, and because the list is sorted, `active_client_ids`
 # becomes the suggested default on any re-add.
+#
+# `total_bandwidth_mbps` was dropped from the package in v2.4.1 but is kept
+# here on purpose: upgrading installs retain a restored registry entry for it,
+# and without the guard it would reappear as a slug candidate.
 PACKAGE_SENSOR_SLUGS = frozenset(
     {
         "active_client_ids",
