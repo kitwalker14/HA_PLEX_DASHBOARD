@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from homeassistant.components import frontend
 from homeassistant.components.lovelace.const import (
     CONF_ICON,
     CONF_REQUIRE_ADMIN,
@@ -261,6 +262,57 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry. Files are left in place intentionally."""
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove the Lovelace dashboard we registered when the user deletes us.
+
+    Without this, deleting the integration leaves a "Plex" entry in the
+    sidebar forever, with nothing tying it back to this integration -- the
+    user has to know to remove it by hand under Settings -> Dashboards.
+
+    The YAML files written to /config are deliberately left in place: they
+    are inert once the integration is gone, and the user may have edited
+    them or be depending on the package's helpers.
+    """
+    if not entry.data.get(CONF_REGISTER_DASHBOARD, True):
+        return
+    if not _LOVELACE_INTERNALS_AVAILABLE:
+        return
+
+    url_path = entry.data.get(CONF_DASHBOARD_URL_PATH, DEFAULT_DASHBOARD_URL_PATH)
+
+    try:
+        collection = DashboardsCollection(hass)
+        await collection.async_load()
+        item = next(
+            (
+                item
+                for item in collection.async_items()
+                if item.get(CONF_URL_PATH) == url_path
+            ),
+            None,
+        )
+        if item is None:
+            return
+        await collection.async_delete_item(item["id"])
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning(
+            "Plex Dashboard: could not remove dashboard '%s' (%s). "
+            "Remove it manually under Settings -> Dashboards.",
+            url_path,
+            err,
+        )
+        return
+
+    # Deleting from a freshly constructed collection updates storage but does
+    # not notify the running frontend, so drop the panel explicitly.
+    try:
+        frontend.async_remove_panel(hass, url_path)
+    except Exception:  # noqa: BLE001
+        _LOGGER.debug("Plex Dashboard: panel '%s' already gone", url_path)
+
+    _LOGGER.info("Plex Dashboard: removed dashboard '%s'", url_path)
 
 
 # ---------------------------------------------------------------------------
